@@ -227,27 +227,36 @@ automation:
 ```yaml
 automation:
   - alias: "RTask State Change Notifications"
-    description: "Send phone notifications when RTask becomes due or overdue"
+    description: "Send phone notifications when any RTask becomes due or overdue"
     trigger:
-      - platform: state
-        entity_id:
-          - sensor.rtask_water_plants
-          - sensor.rtask_clean_litter_box
-          - sensor.rtask_descale_washing_machine
-          # Add all your RTask entities here
-        to:
-          - "Due"
-          - "Overdue"
+      - platform: template
+        value_template: >
+          {{ states.sensor 
+             | selectattr('entity_id', 'match', '^sensor\.rtask_.*')
+             | selectattr('state', 'in', ['Due', 'Overdue'])
+             | list | length > 0 }}
+    condition:
+      - condition: template
+        value_template: >
+          {{ trigger.to_state.entity_id.startswith('sensor.rtask_') and
+             trigger.to_state.state in ['Due', 'Overdue'] and
+             trigger.from_state.state != trigger.to_state.state }}
     action:
-      - service: notify.mobile_app_your_phone  # Replace with your device name
-        data:
-          title: "{% if trigger.to_state.state == 'Overdue' %}⚠️ Task Overdue!{% else %}📝 Task Due{% endif %}"
-          message: "{{ trigger.to_state.attributes.task_name }} is now {{ trigger.to_state.state|lower }}"
-          data:
-            priority: "{% if trigger.to_state.state == 'Overdue' %}high{% else %}normal{% endif %}"
+      - repeat:
+          for_each:
+            - mobile_app_your_phone    # Replace with your device names
+            - mobile_app_partner_phone
+            - mobile_app_tablet
+          sequence:
+            - service: "notify.{{ repeat.item }}"
+              data:
+                title: "{% if trigger.to_state.state == 'Overdue' %}⚠️ Task Overdue!{% else %}📝 Task Due{% endif %}"
+                message: "{{ trigger.to_state.attributes.task_name }} is now {{ trigger.to_state.state|lower }}"
+                data:
+                  priority: "{% if trigger.to_state.state == 'Overdue' %}high{% else %}normal{% endif %}"
 ```
 
-> **Note:** Replace `mobile_app_your_phone` with your actual Home Assistant mobile app notification service (found in Settings > Integrations > Mobile App). Remember to add new RTask entities to the `entity_id` list when you create them.
+> **Note:** Replace `mobile_app_your_phone` with your actual Home Assistant mobile app notification service (found in Settings > Integrations > Mobile App). This automation uses a template to automatically find all entities starting with `sensor.rtask_` and will work for any new RTask entities you create.
 
 This flexibility allows you to start with manual task completion and gradually add smart home integration as your system grows!
 
