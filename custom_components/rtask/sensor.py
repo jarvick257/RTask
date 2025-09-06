@@ -82,6 +82,17 @@ class RTaskSensor(SensorEntity):
             attributes["hours_since_completed"] = int(seconds_since / 3600)
             attributes["days_since_completed"] = int(seconds_since / 86400)
             
+            # Add time until due/overdue for better visibility
+            min_seconds = config_data.get("min_duration_seconds", 86400)
+            max_seconds = config_data.get("max_duration_seconds", 604800)
+            
+            if seconds_since < min_seconds:
+                attributes["seconds_until_due"] = int(min_seconds - seconds_since)
+            elif seconds_since < max_seconds:
+                attributes["seconds_until_overdue"] = int(max_seconds - seconds_since)
+            else:
+                attributes["seconds_overdue"] = int(seconds_since - max_seconds)
+            
         return attributes
 
     def _get_last_completed(self) -> datetime | None:
@@ -117,5 +128,5 @@ class RTaskSensor(SensorEntity):
         
         # Schedule regular updates to check status
         async_track_time_interval(
-            self._hass, _async_update_state, timedelta(minutes=1)
+            self._hass, _async_update_state, timedelta(seconds=1)
         )
