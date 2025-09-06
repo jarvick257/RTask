@@ -56,6 +56,14 @@ This integration is available through HACS (Home Assistant Community Store).
 3. Go to Settings > Devices & Services > Add Integration
 4. Search for "RTask" and add your first task
 
+### Editing Tasks
+
+You can modify task settings after creation:
+1. Go to Settings > Devices & Services > RTask
+2. Click "Configure" on any existing task
+3. Update time intervals, notification settings, or even the task name
+4. Changes apply immediately without losing completion history
+
 ## Dashboard Setup
 
 For the best user experience, we recommend creating a dedicated RTask dashboard with automatic sorting and an easy way to add new tasks.
@@ -228,32 +236,33 @@ automation:
 automation:
   - alias: "RTask State Change Notifications"
     description: "Send phone notifications when any RTask becomes due or overdue"
-    trigger:
-      - platform: template
-        value_template: >
-          {{ states.sensor 
-             | selectattr('entity_id', 'match', '^sensor\.rtask_.*')
-             | selectattr('state', 'in', ['Due', 'Overdue'])
-             | list | length > 0 }}
-    condition:
-      - condition: template
-        value_template: >
-          {{ trigger.to_state.entity_id.startswith('sensor.rtask_') and
-             trigger.to_state.state in ['Due', 'Overdue'] and
-             trigger.from_state.state != trigger.to_state.state }}
-    action:
+    triggers:
+      - trigger: state
+        entity_id:
+          - sensor.rtask_test
+        to:
+          - Due
+          - Overdue
+    conditions: []
+    actions:
       - repeat:
           for_each:
-            - mobile_app_your_phone    # Replace with your device names
-            - mobile_app_partner_phone
-            - mobile_app_tablet
+            - mobile_device_1
+            - mobile_device_2
           sequence:
-            - service: "notify.{{ repeat.item }}"
-              data:
-                title: "{% if trigger.to_state.state == 'Overdue' %}⚠️ Task Overdue!{% else %}📝 Task Due{% endif %}"
-                message: "{{ trigger.to_state.attributes.task_name }} is now {{ trigger.to_state.state|lower }}"
+            - data:
+                title: >-
+                  {% if trigger.to_state.state == 'Overdue' %}⚠️ Task Overdue!{%
+                  else %}📝 Task Due{% endif %}
+                message: >-
+                  {{ trigger.to_state.attributes.task_name }} is now {{
+                  trigger.to_state.state | lower }}
                 data:
-                  priority: "{% if trigger.to_state.state == 'Overdue' %}high{% else %}normal{% endif %}"
+                  priority: >-
+                    {% if trigger.to_state.state == 'Overdue' %}high{% else
+                    %}normal{% endif %}
+              action: notify.{{ repeat.item }}
+    mode: single
 ```
 
 > **Note:** Replace `mobile_app_your_phone` with your actual Home Assistant mobile app notification service (found in Settings > Integrations > Mobile App). This automation uses a template to automatically find all entities starting with `sensor.rtask_` and will work for any new RTask entities you create.

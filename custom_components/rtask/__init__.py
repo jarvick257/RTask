@@ -46,6 +46,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = {
         "last_completed": last_completed,
     }
+    
+    # Set up entry update listener
+    entry.async_on_unload(entry.add_update_listener(async_update_entry))
 
     # Register the custom card resource (only do this once)
     if "rtask_card_registered" not in hass.data[DOMAIN]:
@@ -114,3 +117,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id, None)
 
     return unload_ok
+
+
+async def async_update_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Update a given config entry."""
+    _LOGGER.info("Config entry updated for task: %s", entry.data.get("task_name"))
+    
+    # Reload the config entry to apply changes
+    await hass.config_entries.async_reload(entry.entry_id)
