@@ -1,0 +1,12 @@
+services:
+  homeassistant:
+    image: homeassistant/home-assistant
+    container_name: homeassistant
+    restart: unless-stopped
+    ports:
+      - 8123:8123
+    environment:
+      - TZ=Europe/Berlin
+    volumes:
+      - ./config:/config
+

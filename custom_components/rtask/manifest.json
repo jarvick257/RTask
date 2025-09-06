@@ -1,0 +1,16 @@
+{
+  "domain": "rtask",
+  "name": "RTask",
+  "codeowners": ["@jarvick"],
+  "config_flow": true,
+  "documentation": "https://github.com/jarvick/rtask",
+  "issue_tracker": "https://github.com/jarvick/rtask/issues",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": [],
+  "homekit": {},
+  "dependencies": [],
+  "after_dependencies": [],
+  "version": "0.1.0",
+  "iot_class": "calculated"
+}

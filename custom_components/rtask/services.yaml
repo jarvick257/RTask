@@ -1,0 +1,12 @@
+mark_done:
+  name: Mark Task Done
+  description: Mark a task as completed
+  fields:
+    entity_id:
+      name: Task Entity
+      description: The RTask sensor entity to mark as done
+      required: true
+      selector:
+        entity:
+          domain: sensor
+          integration: rtask
