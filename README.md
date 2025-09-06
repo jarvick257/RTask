@@ -35,10 +35,13 @@ RTask gives each task a **flexible time window**:
 - **Maximum interval**: "This really needs attention now" (e.g., plant not watered for 7 days)
 
 ### Key Benefits
-✅ **Persistent tracking** - Completion times survive Home Assistant restarts
 ✅ **Flexible scheduling** - Time windows instead of rigid schedules
 ✅ **Accidental-completion protection** - Long-press prevents misclicks
-✅ **Multiple time units** - Configure in seconds, minutes, hours, or days
+✅ **Multiple time units** - Configure in minutes, hours, or days
+
+Automation-ready:
+✅ **Mark as Done** - Integrate with smart home devices to automatically mark tasks complete
+✅ **Phone notifications** - Get notified when tasks become due or overdue
 
 And with a little help from [auto-entities](https://github.com/thomasloven/lovelace-auto-entities):
 ✅ **Visual dashboard** - See all tasks and their urgency at a glance
@@ -219,6 +222,32 @@ automation:
         target:
           entity_id: input_boolean.took_medication_today
 ```
+
+**Phone Notifications for State Changes:**
+```yaml
+automation:
+  - alias: "RTask State Change Notifications"
+    description: "Send phone notifications when RTask becomes due or overdue"
+    trigger:
+      - platform: state
+        entity_id:
+          - sensor.rtask_water_plants
+          - sensor.rtask_clean_litter_box
+          - sensor.rtask_descale_washing_machine
+          # Add all your RTask entities here
+        to:
+          - "Due"
+          - "Overdue"
+    action:
+      - service: notify.mobile_app_your_phone  # Replace with your device name
+        data:
+          title: "{% if trigger.to_state.state == 'Overdue' %}⚠️ Task Overdue!{% else %}📝 Task Due{% endif %}"
+          message: "{{ trigger.to_state.attributes.task_name }} is now {{ trigger.to_state.state|lower }}"
+          data:
+            priority: "{% if trigger.to_state.state == 'Overdue' %}high{% else %}normal{% endif %}"
+```
+
+> **Note:** Replace `mobile_app_your_phone` with your actual Home Assistant mobile app notification service (found in Settings > Integrations > Mobile App). Remember to add new RTask entities to the `entity_id` list when you create them.
 
 This flexibility allows you to start with manual task completion and gradually add smart home integration as your system grows!
 
