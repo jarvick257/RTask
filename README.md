@@ -15,8 +15,8 @@ RTask is designed for **recurring tasks that don't have fixed schedules** but ne
 
 ## What RTask is NOT
 
-❌ **Not a calendar or scheduler** - It doesn't automatically schedule tasks or send notifications
-❌ **Not for one-time tasks** - Use Home Assistant's built-in to-do lists for those
+❌ **Not a calendar or scheduler** - It doesn't automatically schedule tasks or send notifications\
+❌ **Not for one-time tasks** - Use Home Assistant's built-in to-do lists for those\
 ❌ **No automatic task detection** - RTask doesn't automatically detect when tasks are completed (like sensing when you water plants), but you can integrate it with Home Assistant automations
 
 ## Why RTask?
@@ -35,16 +35,16 @@ RTask gives each task a **flexible time window**:
 - **Maximum interval**: "This really needs attention now" (e.g., plant not watered for 7 days)
 
 ### Key Benefits
-✅ **Flexible scheduling** - Time windows instead of rigid schedules
-✅ **Accidental-completion protection** - Long-press prevents misclicks
-✅ **Multiple time units** - Configure in minutes, hours, or days
+✅ **Flexible scheduling** - Time windows instead of rigid schedules\
+✅ **Accidental-completion protection** - Long-press prevents misclicks\
+✅ **Multiple time units** - Configure in hours or days
 
-Automation-ready:
-✅ **Mark as Done** - Integrate with smart home devices to automatically mark tasks complete
+Automation-ready:\
+✅ **Mark as Done** - Integrate with smart home devices to automatically mark tasks complete\
 ✅ **Phone notifications** - Get notified when tasks become due or overdue
 
-And with a little help from [auto-entities](https://github.com/thomasloven/lovelace-auto-entities):
-✅ **Visual dashboard** - See all tasks and their urgency at a glance
+And with a little help from [auto-entities](https://github.com/thomasloven/lovelace-auto-entities):\
+✅ **Visual dashboard** - See all tasks and their urgency at a glance\
 ✅ **Priority sorting** - Overdue tasks automatically appear first
 
 ## Installation

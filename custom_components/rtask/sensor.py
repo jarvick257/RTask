@@ -116,7 +116,6 @@ class RTaskSensor(SensorEntity):
         self._hass.bus.async_listen("rtask_task_completed", _async_task_completed)
         
         # Schedule regular updates to check status
-        # TODO: Change back to timedelta(minutes=1) for production - currently set to 1 second for testing
         async_track_time_interval(
-            self._hass, _async_update_state, timedelta(seconds=1)
+            self._hass, _async_update_state, timedelta(minutes=1)
         )
