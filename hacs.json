@@ -1,0 +1,10 @@
+{
+  "name": "RTask",
+  "content_in_root": false,
+  "filename": "rtask",
+  "country": [],
+  "homeassistant": "2023.1.0",
+  "render_readme": true,
+  "zip_release": false,
+  "hide_default_branch": false
+}
