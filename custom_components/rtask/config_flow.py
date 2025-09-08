@@ -102,7 +102,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             "max_duration": max_duration,
             "max_duration_unit": max_duration_unit,
             "max_duration_seconds": max_duration_seconds,
-            "last_completed": last_completed.isoformat() if last_completed else None,
+            "last_completed": (
+                last_completed.isoformat() 
+                if last_completed and hasattr(last_completed, 'isoformat')
+                else last_completed
+                if isinstance(last_completed, str)
+                else None
+            ),
         }
 
         # Create the entry with the task name as the title
@@ -223,7 +229,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             "max_duration": max_duration,
             "max_duration_unit": max_duration_unit,
             "max_duration_seconds": max_duration_seconds,
-            "last_completed": last_completed.isoformat() if last_completed else None,
+            "last_completed": (
+                last_completed.isoformat() 
+                if last_completed and hasattr(last_completed, 'isoformat')
+                else last_completed
+                if isinstance(last_completed, str)
+                else None
+            ),
         }
 
         # Update the last_completed timestamp in storage if changed
@@ -238,9 +250,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
                 # Save to persistent storage
                 if last_completed:
+                    # Convert to ISO format string if it's a datetime object
+                    iso_string = (
+                        last_completed.isoformat() 
+                        if hasattr(last_completed, 'isoformat')
+                        else last_completed
+                    )
                     self.hass.data[DOMAIN]["completions"][
                         self.config_entry.entry_id
-                    ] = last_completed.isoformat()
+                    ] = iso_string
                 else:
                     self.hass.data[DOMAIN]["completions"].pop(
                         self.config_entry.entry_id, None
