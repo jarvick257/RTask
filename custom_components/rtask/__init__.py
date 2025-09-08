@@ -1,4 +1,5 @@
 """The RTask integration."""
+
 from __future__ import annotations
 
 import logging
@@ -25,7 +26,7 @@ STORAGE_KEY = f"{DOMAIN}_task_completions"
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up RTask from a config entry."""
     hass.data.setdefault(DOMAIN, {})
-    
+
     # Initialize storage for task completion times
     if "store" not in hass.data[DOMAIN]:
         store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
@@ -33,20 +34,41 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Load existing completion data
         stored_data = await store.async_load()
         hass.data[DOMAIN]["completions"] = stored_data or {}
-    
-    # Initialize entry data with stored completion time if available
-    stored_completion = hass.data[DOMAIN]["completions"].get(entry.entry_id)
+
+    # Initialize entry data with completion time from config or storage
     last_completed = None
-    if stored_completion:
+
+    # First check if there's a manually set time in config
+    config_last_completed = entry.data.get("last_completed")
+    if config_last_completed:
         try:
-            last_completed = datetime.fromisoformat(stored_completion)
+            last_completed = datetime.fromisoformat(config_last_completed)
         except (ValueError, TypeError):
-            _LOGGER.warning("Invalid stored completion time for entry %s", entry.entry_id)
-    
+            _LOGGER.warning(
+                "Invalid config completion time for entry %s", entry.entry_id
+            )
+
+    # If not in config, check stored completion time
+    if not last_completed:
+        stored_completion = hass.data[DOMAIN]["completions"].get(entry.entry_id)
+        if stored_completion:
+            try:
+                last_completed = datetime.fromisoformat(stored_completion)
+            except (ValueError, TypeError):
+                _LOGGER.warning(
+                    "Invalid stored completion time for entry %s", entry.entry_id
+                )
+
+    # If we have a manually set time from config, save it to storage
+    if config_last_completed and last_completed:
+        hass.data[DOMAIN]["completions"][entry.entry_id] = config_last_completed
+        store = hass.data[DOMAIN]["store"]
+        await store.async_save(hass.data[DOMAIN]["completions"])
+
     hass.data[DOMAIN][entry.entry_id] = {
         "last_completed": last_completed,
     }
-    
+
     # Set up entry update listener
     entry.async_on_unload(entry.add_update_listener(async_update_entry))
 
@@ -57,10 +79,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await hass.http.async_register_static_path(
                 "/local/community/rtask-card",
                 hass.config.path("www/community/rtask-card"),
-                cache_headers=False
+                cache_headers=False,
             )
             hass.data[DOMAIN]["rtask_card_registered"] = True
-            _LOGGER.info("RTask card resource registered at /local/community/rtask-card")
+            _LOGGER.info(
+                "RTask card resource registered at /local/community/rtask-card"
+            )
         except Exception as err:
             _LOGGER.warning("Could not register RTask card resource: %s", err)
 
@@ -70,7 +94,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_mark_done(call: ServiceCall) -> None:
         """Handle the mark_done service call."""
         entity_id = call.data.get("entity_id")
-        
+
         if not entity_id:
             _LOGGER.error("No entity_id provided for mark_done service")
             return
@@ -78,7 +102,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Find the config entry for this entity
         entity_registry = er.async_get(hass)
         entity_entry = entity_registry.async_get(entity_id)
-        
+
         if not entity_entry or entity_entry.platform != DOMAIN:
             _LOGGER.error("Entity %s not found or not an RTask entity", entity_id)
             return
@@ -88,14 +112,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if config_entry_id in hass.data[DOMAIN]:
             now = datetime.now()
             hass.data[DOMAIN][config_entry_id]["last_completed"] = now
-            
+
             # Save to persistent storage
             hass.data[DOMAIN]["completions"][config_entry_id] = now.isoformat()
             store = hass.data[DOMAIN]["store"]
             await store.async_save(hass.data[DOMAIN]["completions"])
-            
+
             _LOGGER.info("Marked task %s as done at %s", entity_id, now)
-            
+
             # Force state update by firing completion event
             hass.bus.async_fire("rtask_task_completed", {"entity_id": entity_id})
 
@@ -113,7 +137,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Save the updated completions to storage
             store = hass.data[DOMAIN]["store"]
             await store.async_save(hass.data[DOMAIN]["completions"])
-        
+
         hass.data[DOMAIN].pop(entry.entry_id, None)
 
     return unload_ok
@@ -122,6 +146,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_update_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update a given config entry."""
     _LOGGER.info("Config entry updated for task: %s", entry.data.get("task_name"))
-    
+
     # Reload the config entry to apply changes
     await hass.config_entries.async_reload(entry.entry_id)
