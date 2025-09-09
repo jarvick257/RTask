@@ -42,7 +42,11 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
                 options=TIME_UNIT_OPTIONS, mode=selector.SelectSelectorMode.DROPDOWN
             )
         ),
-        vol.Optional("last_completed"): selector.DateTimeSelector(),
+        vol.Optional("last_completed"): selector.TextSelector(
+            selector.TextSelectorConfig(
+                type=selector.TextSelectorType.TEXT
+            )
+        ),
     }
 )
 
@@ -51,6 +55,53 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for RTask."""
 
     VERSION = 1
+
+    def _validate_and_format_datetime(self, dt_value: Any, context: str) -> str | None:
+        """Validate and format datetime value from text input (yyyy-mm-dd hh:mm format)."""
+        _LOGGER.debug(f"Validating datetime in {context}: {dt_value} (type: {type(dt_value).__name__})")
+
+        if dt_value is None:
+            _LOGGER.debug(f"Datetime is None in {context}")
+            return None
+
+        if hasattr(dt_value, "isoformat"):
+            # It's a datetime object
+            result = dt_value.isoformat()
+            _LOGGER.debug(f"Converted datetime object to ISO string in {context}: {result}")
+            return result
+        elif isinstance(dt_value, str):
+            dt_string = dt_value.strip()
+            
+            if not dt_string:
+                _LOGGER.debug(f"Empty datetime string in {context}")
+                return None
+
+            # Try to parse the expected format: "yyyy-mm-dd hh:mm"
+            formats_to_try = [
+                "%Y-%m-%d %H:%M",      # "2025-09-08 16:00"
+                "%Y-%m-%d %H:%M:%S",   # "2025-09-08 16:00:00"
+                "%Y-%m-%d",            # "2025-09-08" (date only, defaults to 00:00)
+                "%Y-%m-%dT%H:%M",      # "2025-09-08T16:00" (ISO format without seconds)
+                "%Y-%m-%dT%H:%M:%S",   # "2025-09-08T16:00:00" (full ISO format)
+            ]
+
+            for fmt in formats_to_try:
+                try:
+                    parsed_dt = datetime.strptime(dt_string, fmt)
+                    result = parsed_dt.isoformat()
+                    _LOGGER.debug(f"Parsed datetime using format '{fmt}' in {context}: '{dt_value}' -> '{result}'")
+                    return result
+                except ValueError:
+                    continue
+
+            # If all parsing attempts fail
+            error_msg = f"Invalid datetime format in {context}: '{dt_value}'. Expected format: yyyy-mm-dd hh:mm (e.g., '2025-09-08 16:00')"
+            _LOGGER.error(error_msg)
+            raise ValueError(error_msg)
+        else:
+            error_msg = f"Invalid datetime type in {context}: expected string, got {type(dt_value).__name__}: {dt_value}"
+            _LOGGER.error(error_msg)
+            raise TypeError(error_msg)
 
     @staticmethod
     def async_get_options_flow(config_entry):
@@ -102,12 +153,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             "max_duration": max_duration,
             "max_duration_unit": max_duration_unit,
             "max_duration_seconds": max_duration_seconds,
-            "last_completed": (
-                last_completed.isoformat() 
-                if last_completed and hasattr(last_completed, 'isoformat')
-                else last_completed
-                if isinstance(last_completed, str)
-                else None
+            "last_completed": self._validate_and_format_datetime(
+                last_completed, "initial config"
             ),
         }
 
@@ -121,6 +168,53 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
         super().__init__()
+
+    def _validate_and_format_datetime(self, dt_value: Any, context: str) -> str | None:
+        """Validate and format datetime value from text input (yyyy-mm-dd hh:mm format)."""
+        _LOGGER.debug(f"Validating datetime in {context}: {dt_value} (type: {type(dt_value).__name__})")
+
+        if dt_value is None:
+            _LOGGER.debug(f"Datetime is None in {context}")
+            return None
+
+        if hasattr(dt_value, "isoformat"):
+            # It's a datetime object
+            result = dt_value.isoformat()
+            _LOGGER.debug(f"Converted datetime object to ISO string in {context}: {result}")
+            return result
+        elif isinstance(dt_value, str):
+            dt_string = dt_value.strip()
+            
+            if not dt_string:
+                _LOGGER.debug(f"Empty datetime string in {context}")
+                return None
+
+            # Try to parse the expected format: "yyyy-mm-dd hh:mm"
+            formats_to_try = [
+                "%Y-%m-%d %H:%M",      # "2025-09-08 16:00"
+                "%Y-%m-%d %H:%M:%S",   # "2025-09-08 16:00:00"
+                "%Y-%m-%d",            # "2025-09-08" (date only, defaults to 00:00)
+                "%Y-%m-%dT%H:%M",      # "2025-09-08T16:00" (ISO format without seconds)
+                "%Y-%m-%dT%H:%M:%S",   # "2025-09-08T16:00:00" (full ISO format)
+            ]
+
+            for fmt in formats_to_try:
+                try:
+                    parsed_dt = datetime.strptime(dt_string, fmt)
+                    result = parsed_dt.isoformat()
+                    _LOGGER.debug(f"Parsed datetime using format '{fmt}' in {context}: '{dt_value}' -> '{result}'")
+                    return result
+                except ValueError:
+                    continue
+
+            # If all parsing attempts fail
+            error_msg = f"Invalid datetime format in {context}: '{dt_value}'. Expected format: yyyy-mm-dd hh:mm (e.g., '2025-09-08 16:00')"
+            _LOGGER.error(error_msg)
+            raise ValueError(error_msg)
+        else:
+            error_msg = f"Invalid datetime type in {context}: expected string, got {type(dt_value).__name__}: {dt_value}"
+            _LOGGER.error(error_msg)
+            raise TypeError(error_msg)
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -137,7 +231,18 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             entry_data = self.hass.data[DOMAIN].get(self.config_entry.entry_id, {})
             last_completed_dt = entry_data.get("last_completed")
             if last_completed_dt:
-                current_last_completed = last_completed_dt
+                # Ensure we pass a datetime object to the DateTimeSelector
+                if isinstance(last_completed_dt, str):
+                    try:
+                        current_last_completed = datetime.fromisoformat(
+                            last_completed_dt
+                        )
+                    except (ValueError, TypeError) as e:
+                        error_msg = f"Invalid datetime string in storage: '{last_completed_dt}': {e}"
+                        _LOGGER.error(error_msg)
+                        raise ValueError(error_msg) from e
+                else:
+                    current_last_completed = last_completed_dt
 
         if user_input is None:
             # Pre-populate form with current values
@@ -191,8 +296,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             )
                         ),
                         vol.Optional(
-                            "last_completed", default=current_last_completed
-                        ): selector.DateTimeSelector(),
+                            "last_completed", 
+                            default=current_last_completed.strftime("%Y-%m-%d %H:%M") if current_last_completed else ""
+                        ): selector.TextSelector(
+                            selector.TextSelectorConfig(
+                                type=selector.TextSelectorType.TEXT
+                            )
+                        ),
                     }
                 ),
             )
@@ -204,6 +314,18 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         max_duration = user_input.get("max_duration", 0)
         max_duration_unit = user_input.get("max_duration_unit", "days")
         last_completed = user_input.get("last_completed")
+
+        # Debug log the datetime input with more detail
+        _LOGGER.debug(
+            "Options flow - Raw last_completed input: %s (type: %s)",
+            last_completed,
+            type(last_completed),
+        )
+        if isinstance(last_completed, str):
+            _LOGGER.debug("String representation: '%s'", repr(last_completed))
+            _LOGGER.debug("String length: %d", len(last_completed))
+        elif hasattr(last_completed, "__dict__"):
+            _LOGGER.debug("Object attributes: %s", vars(last_completed))
 
         if not task_name:
             errors["task_name"] = "Task name cannot be empty"
@@ -229,36 +351,91 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             "max_duration": max_duration,
             "max_duration_unit": max_duration_unit,
             "max_duration_seconds": max_duration_seconds,
-            "last_completed": (
-                last_completed.isoformat() 
-                if last_completed and hasattr(last_completed, 'isoformat')
-                else last_completed
-                if isinstance(last_completed, str)
-                else None
+            "last_completed": self._validate_and_format_datetime(
+                last_completed, "options update"
             ),
         }
 
         # Update the last_completed timestamp in storage if changed
-        if last_completed != current_last_completed:
+        # Convert both to comparable format for comparison
+        current_comparable = None
+        if current_last_completed:
+            if hasattr(current_last_completed, "isoformat"):
+                current_comparable = current_last_completed.isoformat()
+            else:
+                current_comparable = str(current_last_completed)
+
+        new_comparable = None
+        if last_completed:
+            if hasattr(last_completed, "isoformat"):
+                new_comparable = last_completed.isoformat()
+            else:
+                new_comparable = str(last_completed)
+
+        _LOGGER.debug(
+            "Comparing timestamps - current: %s, new: %s",
+            current_comparable,
+            new_comparable,
+        )
+
+        if new_comparable != current_comparable:
+            _LOGGER.info(
+                f"Timestamp changed for entry {self.config_entry.entry_id}: {current_comparable} -> {new_comparable}"
+            )
             if (
                 DOMAIN in self.hass.data
                 and self.config_entry.entry_id in self.hass.data[DOMAIN]
             ):
+                # Store datetime object in memory
+                datetime_obj = (
+                    current_last_completed  # Start with current value as fallback
+                )
+                if last_completed:
+                    if hasattr(last_completed, "isoformat"):
+                        datetime_obj = last_completed
+                    elif isinstance(last_completed, str):
+                        try:
+                            datetime_obj = datetime.fromisoformat(last_completed)
+                        except (ValueError, TypeError) as e:
+                            error_msg = f"Invalid datetime string during options update: '{last_completed}': {e}"
+                            _LOGGER.error(error_msg)
+                            raise ValueError(error_msg) from e
+                elif last_completed is None:
+                    # Explicitly setting to None, so clear it
+                    datetime_obj = None
+
                 self.hass.data[DOMAIN][self.config_entry.entry_id][
                     "last_completed"
-                ] = last_completed
+                ] = datetime_obj
 
                 # Save to persistent storage
-                if last_completed:
-                    # Convert to ISO format string if it's a datetime object
-                    iso_string = (
-                        last_completed.isoformat() 
-                        if hasattr(last_completed, 'isoformat')
-                        else last_completed
-                    )
+                if datetime_obj:
+                    # Validate and convert to ISO format string
+                    if hasattr(datetime_obj, "isoformat"):
+                        iso_string = datetime_obj.isoformat()
+                    elif isinstance(datetime_obj, str):
+                        # Re-validate string format before storing
+                        try:
+                            parsed = datetime.fromisoformat(datetime_obj)
+                            iso_string = parsed.isoformat()
+                        except (ValueError, TypeError) as e:
+                            error_msg = f"Cannot store invalid datetime string '{datetime_obj}': {e}"
+                            _LOGGER.error(error_msg)
+                            raise ValueError(error_msg) from e
+                    else:
+                        error_msg = f"Cannot store datetime of unexpected type {type(datetime_obj).__name__}: {datetime_obj}"
+                        _LOGGER.error(error_msg)
+                        raise TypeError(error_msg)
+
                     self.hass.data[DOMAIN]["completions"][
                         self.config_entry.entry_id
                     ] = iso_string
+                    _LOGGER.debug(
+                        f"Stored completion time for entry {self.config_entry.entry_id}: {iso_string}"
+                    )
+                    _LOGGER.debug(
+                        f"All completions after update: {self.hass.data[DOMAIN]['completions']}"
+                    )
                 else:
                     self.hass.data[DOMAIN]["completions"].pop(
                         self.config_entry.entry_id, None
@@ -266,6 +443,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
                 store = self.hass.data[DOMAIN]["store"]
                 await store.async_save(self.hass.data[DOMAIN]["completions"])
+                _LOGGER.info(
+                    f"Successfully saved timestamp change to storage for entry {self.config_entry.entry_id}"
+                )
 
         # Update the title if the task name changed
         title = f"RTask: {task_name}"

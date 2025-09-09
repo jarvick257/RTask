@@ -9,3 +9,4 @@ cp -r ../../custom_components config/
 cp -r ../../www config/
 
 docker compose restart
+docker compose logs -f
