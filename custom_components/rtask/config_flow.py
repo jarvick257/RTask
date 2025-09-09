@@ -89,6 +89,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         except ValueError as e:
             errors["max_duration"] = str(e)
 
+        # Validate datetime format
+        if last_completed:
+            try:
+                DateTimeValidator.validate_and_format_datetime(
+                    last_completed, "initial config"
+                )
+            except (ValueError, TypeError) as e:
+                errors["last_completed"] = str(e)
+
         if errors:
             # Create schema with user's input preserved
             error_schema = vol.Schema(
@@ -128,6 +137,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         # Store durations in seconds for consistency
+        validated_last_completed = None
+        if last_completed:
+            # We already validated this above, so this should not raise
+            validated_last_completed = DateTimeValidator.validate_and_format_datetime(
+                last_completed, "initial config"
+            )
+        
         config_data = {
             "task_name": task_name,
             "min_duration": min_duration,
@@ -136,9 +152,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             "max_duration": max_duration,
             "max_duration_unit": max_duration_unit,
             "max_duration_seconds": max_duration_seconds,
-            "last_completed": DateTimeValidator.validate_and_format_datetime(
-                last_completed, "initial config"
-            ),
+            "last_completed": validated_last_completed,
         }
 
         # Create the entry with the task name as the title
@@ -261,6 +275,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         except ValueError as e:
             errors["max_duration"] = str(e)
 
+        # Validate datetime format
+        if last_completed:
+            try:
+                DateTimeValidator.validate_and_format_datetime(
+                    last_completed, "options update"
+                )
+            except (ValueError, TypeError) as e:
+                errors["last_completed"] = str(e)
+
         if errors:
             # Create schema with user's input preserved
             error_schema = vol.Schema(
@@ -330,7 +353,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             "max_duration_seconds": max_duration_seconds,
             "last_completed": DateTimeValidator.validate_and_format_datetime(
                 last_completed, "options update"
-            ),
+            ) if last_completed else None,
         }
 
         # Update the last_completed timestamp in storage if changed
