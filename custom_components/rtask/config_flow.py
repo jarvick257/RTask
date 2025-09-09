@@ -20,7 +20,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required("task_name"): selector.TextSelector(
             selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
         ),
-        vol.Required("min_duration"): selector.NumberSelector(
+        vol.Required("min_duration", default=1): selector.NumberSelector(
             selector.NumberSelectorConfig(
                 min=1, max=999999, step=1, mode=selector.NumberSelectorMode.BOX
             )
@@ -30,7 +30,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
                 options=TIME_UNIT_OPTIONS, mode=selector.SelectSelectorMode.DROPDOWN
             )
         ),
-        vol.Required("max_duration"): selector.NumberSelector(
+        vol.Required("max_duration", default=2): selector.NumberSelector(
             selector.NumberSelectorConfig(
                 min=1, max=999999, step=1, mode=selector.NumberSelectorMode.BOX
             )
@@ -179,7 +179,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             )
                         ),
                         vol.Required(
-                            "max_duration", default=current_data.get("max_duration", 7)
+                            "max_duration", default=current_data.get("max_duration", 2)
                         ): selector.NumberSelector(
                             selector.NumberSelectorConfig(
                                 min=1,
