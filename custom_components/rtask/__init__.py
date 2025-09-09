@@ -21,7 +21,7 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up RTask from a config entry."""
     hass.data.setdefault(DOMAIN, {})
-    
+
     # Initialize storage manager if not exists
     if "storage_manager" not in hass.data[DOMAIN]:
         storage_manager = TaskStorageManager(hass)
@@ -49,7 +49,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 last_completed = datetime.fromisoformat(config_last_completed)
                 # Save initial config time to storage
-                await storage_manager.set_completion(entry.entry_id, config_last_completed)
+                await storage_manager.set_completion(
+                    entry.entry_id, config_last_completed
+                )
             except (ValueError, TypeError) as e:
                 error_msg = f"Invalid config completion time '{config_last_completed}' for entry {entry.entry_id}: {e}"
                 raise ValueError(error_msg) from e
@@ -76,7 +78,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entity_entry = entity_registry.async_get(entity_id)
 
         if not entity_entry or entity_entry.platform != DOMAIN:
-            raise ServiceValidationError(f"Entity {entity_id} not found or not an RTask entity")
+            raise ServiceValidationError(
+                f"Entity {entity_id} not found or not an RTask entity"
+            )
 
         # Update the last completed time
         config_entry_id = entity_entry.config_entry_id
@@ -101,7 +105,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         # Check if this is a permanent removal or just a reload
         # If the entry is being removed (not just reloaded), clean up storage
-        if hasattr(entry, '_async_remove_if_unused') or entry.state.name == 'NOT_LOADED':
+        if (
+            hasattr(entry, "_async_remove_if_unused")
+            or entry.state.name == "NOT_LOADED"
+        ):
             # This appears to be a permanent deletion
             storage_manager = hass.data[DOMAIN].get("storage_manager")
             if storage_manager:
@@ -109,7 +116,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         else:
             # This is just a reload, preserve completion data
             pass
-            
+
         # Always clean up runtime data
         hass.data[DOMAIN].pop(entry.entry_id, None)
 

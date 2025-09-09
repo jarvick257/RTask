@@ -25,17 +25,17 @@ class DateTimeValidator:
             return dt_value.isoformat()
         elif isinstance(dt_value, str):
             dt_string = dt_value.strip()
-            
+
             if not dt_string:
                 return None
 
             # Try to parse the expected format: "yyyy-mm-dd hh:mm"
             formats_to_try = [
-                "%Y-%m-%d %H:%M",      # "2025-09-08 16:00"
-                "%Y-%m-%d %H:%M:%S",   # "2025-09-08 16:00:00"
-                "%Y-%m-%d",            # "2025-09-08" (date only, defaults to 00:00)
-                "%Y-%m-%dT%H:%M",      # "2025-09-08T16:00" (ISO format without seconds)
-                "%Y-%m-%dT%H:%M:%S",   # "2025-09-08T16:00:00" (full ISO format)
+                "%Y-%m-%d %H:%M",  # "2025-09-08 16:00"
+                "%Y-%m-%d %H:%M:%S",  # "2025-09-08 16:00:00"
+                "%Y-%m-%d",  # "2025-09-08" (date only, defaults to 00:00)
+                "%Y-%m-%dT%H:%M",  # "2025-09-08T16:00" (ISO format without seconds)
+                "%Y-%m-%dT%H:%M:%S",  # "2025-09-08T16:00:00" (full ISO format)
             ]
 
             for fmt in formats_to_try:
@@ -117,7 +117,9 @@ class TaskDataValidator:
             return {}
 
     @staticmethod
-    def get_last_completed_datetime(hass: HomeAssistant, entry_id: str) -> datetime | None:
+    def get_last_completed_datetime(
+        hass: HomeAssistant, entry_id: str
+    ) -> datetime | None:
         """Get the last completed timestamp from hass data with proper error handling."""
         try:
             entry_data = TaskDataValidator.get_safe_entry_data(hass, entry_id)
@@ -126,20 +128,24 @@ class TaskDataValidator:
             return None
 
     @staticmethod
-    def validate_duration_config(min_duration: int, min_unit: str, max_duration: int, max_unit: str) -> tuple[int, int]:
+    def validate_duration_config(
+        min_duration: int, min_unit: str, max_duration: int, max_unit: str
+    ) -> tuple[int, int]:
         """Validate and convert duration configuration to seconds."""
         from .const import TIME_UNITS
-        
+
         min_duration_seconds = min_duration * TIME_UNITS.get(min_unit, 1)
         max_duration_seconds = max_duration * TIME_UNITS.get(max_unit, 1)
-        
+
         if min_duration_seconds >= max_duration_seconds:
             raise ValueError("Maximum duration must be greater than minimum duration")
-            
+
         return min_duration_seconds, max_duration_seconds
 
     @staticmethod
-    def get_config_value_safe(config_data: dict[str, Any], key: str, default: Any = None) -> Any:
+    def get_config_value_safe(
+        config_data: dict[str, Any], key: str, default: Any = None
+    ) -> Any:
         """Safely get a value from config data with default fallback."""
         try:
             return config_data.get(key, default)

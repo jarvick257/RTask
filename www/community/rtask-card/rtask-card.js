@@ -34,13 +34,13 @@ class RTaskCard extends HTMLElement {
     const state = entity.state;
     const attributes = entity.attributes;
     const taskName = attributes.task_name || 'Unknown Task';
-    
+
     // Calculate time remaining/overdue
     const timeInfo = this.getTimeInfo(entity);
-    
+
     // Get status color
     const statusColor = this.getStatusColor(state);
-    
+
     this.shadowRoot.innerHTML = `
       <style>
         ha-card {
@@ -209,12 +209,12 @@ class RTaskCard extends HTMLElement {
     const card = this.shadowRoot.querySelector('ha-card');
     const container = this.shadowRoot.querySelector('.rtask-container');
     const progressBar = this.shadowRoot.querySelector('.long-press-progress');
-    
+
     // Mouse events
     card.addEventListener('mousedown', (e) => this.startLongPress(e, container, progressBar));
     card.addEventListener('mouseup', () => this.endLongPress(container, progressBar));
     card.addEventListener('mouseleave', () => this.cancelLongPress(container, progressBar));
-    
+
     // Touch events for mobile
     card.addEventListener('touchstart', (e) => this.startLongPress(e, container, progressBar));
     card.addEventListener('touchend', () => this.endLongPress(container, progressBar));
@@ -224,11 +224,11 @@ class RTaskCard extends HTMLElement {
   getTimeInfo(entity) {
     const attributes = entity.attributes;
     const state = entity.state;
-    
+
     if (state === 'Never Done') {
       return 'Never completed';
     }
-    
+
     if (!attributes.last_completed) {
       return '';
     }
@@ -253,7 +253,7 @@ class RTaskCard extends HTMLElement {
 
   formatDuration(seconds) {
     if (seconds < 0) seconds = 0;
-    
+
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -288,34 +288,34 @@ class RTaskCard extends HTMLElement {
   startLongPress(event, container, progressBar) {
     // Prevent default to avoid text selection
     event.preventDefault();
-    
+
     // Clear any existing timer
     if (this.longPressTimer) {
       clearTimeout(this.longPressTimer);
     }
-    
+
     // Add visual feedback
     container.classList.add('long-press-active');
     progressBar.classList.add('active');
-    
+
     // Start the long press timer
     this.longPressTimer = setTimeout(() => {
       this.handleLongPress();
       this.endLongPress(container, progressBar);
     }, this.longPressDelay);
   }
-  
+
   endLongPress(container, progressBar) {
     if (this.longPressTimer) {
       clearTimeout(this.longPressTimer);
       this.longPressTimer = null;
     }
-    
+
     // Remove visual feedback
     container.classList.remove('long-press-active');
     progressBar.classList.remove('active');
   }
-  
+
   cancelLongPress(container, progressBar) {
     this.endLongPress(container, progressBar);
   }
@@ -330,7 +330,7 @@ class RTaskCard extends HTMLElement {
     this._hass.callService('rtask', 'mark_done', {
       entity_id: this.config.entity
     });
-    
+
     // Optional: Add haptic feedback if available
     if (navigator.vibrate) {
       navigator.vibrate(50);

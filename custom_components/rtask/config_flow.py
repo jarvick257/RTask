@@ -41,9 +41,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
             )
         ),
         vol.Optional("last_completed"): selector.TextSelector(
-            selector.TextSelectorConfig(
-                type=selector.TextSelectorType.TEXT
-            )
+            selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
         ),
     }
 )
@@ -83,8 +81,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Validate duration configuration
         try:
-            min_duration_seconds, max_duration_seconds = TaskDataValidator.validate_duration_config(
-                min_duration, min_duration_unit, max_duration, max_duration_unit
+            min_duration_seconds, max_duration_seconds = (
+                TaskDataValidator.validate_duration_config(
+                    min_duration, min_duration_unit, max_duration, max_duration_unit
+                )
             )
         except ValueError as e:
             errors["max_duration"] = str(e)
@@ -105,30 +105,46 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required("task_name", default=task_name): selector.TextSelector(
                         selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
                     ),
-                    vol.Required("min_duration", default=min_duration): selector.NumberSelector(
+                    vol.Required(
+                        "min_duration", default=min_duration
+                    ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
-                            min=1, max=999999, step=1, mode=selector.NumberSelectorMode.BOX
+                            min=1,
+                            max=999999,
+                            step=1,
+                            mode=selector.NumberSelectorMode.BOX,
                         )
                     ),
-                    vol.Required("min_duration_unit", default=min_duration_unit): selector.SelectSelector(
+                    vol.Required(
+                        "min_duration_unit", default=min_duration_unit
+                    ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
-                            options=TIME_UNIT_OPTIONS, mode=selector.SelectSelectorMode.DROPDOWN
+                            options=TIME_UNIT_OPTIONS,
+                            mode=selector.SelectSelectorMode.DROPDOWN,
                         )
                     ),
-                    vol.Required("max_duration", default=max_duration): selector.NumberSelector(
+                    vol.Required(
+                        "max_duration", default=max_duration
+                    ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
-                            min=1, max=999999, step=1, mode=selector.NumberSelectorMode.BOX
+                            min=1,
+                            max=999999,
+                            step=1,
+                            mode=selector.NumberSelectorMode.BOX,
                         )
                     ),
-                    vol.Required("max_duration_unit", default=max_duration_unit): selector.SelectSelector(
+                    vol.Required(
+                        "max_duration_unit", default=max_duration_unit
+                    ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
-                            options=TIME_UNIT_OPTIONS, mode=selector.SelectSelectorMode.DROPDOWN
+                            options=TIME_UNIT_OPTIONS,
+                            mode=selector.SelectSelectorMode.DROPDOWN,
                         )
                     ),
-                    vol.Optional("last_completed", default=last_completed or ""): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.TEXT
-                        )
+                    vol.Optional(
+                        "last_completed", default=last_completed or ""
+                    ): selector.TextSelector(
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
                     ),
                 }
             )
@@ -143,7 +159,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             validated_last_completed = DateTimeValidator.validate_and_format_datetime(
                 last_completed, "initial config"
             )
-        
+
         config_data = {
             "task_name": task_name,
             "min_duration": min_duration,
@@ -245,8 +261,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             )
                         ),
                         vol.Optional(
-                            "last_completed", 
-                            default=current_last_completed.strftime("%Y-%m-%d %H:%M") if current_last_completed else ""
+                            "last_completed",
+                            default=(
+                                current_last_completed.strftime("%Y-%m-%d %H:%M")
+                                if current_last_completed
+                                else ""
+                            ),
                         ): selector.TextSelector(
                             selector.TextSelectorConfig(
                                 type=selector.TextSelectorType.TEXT
@@ -269,8 +289,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         # Validate duration configuration
         try:
-            min_duration_seconds, max_duration_seconds = TaskDataValidator.validate_duration_config(
-                min_duration, min_duration_unit, max_duration, max_duration_unit
+            min_duration_seconds, max_duration_seconds = (
+                TaskDataValidator.validate_duration_config(
+                    min_duration, min_duration_unit, max_duration, max_duration_unit
+                )
             )
         except ValueError as e:
             errors["max_duration"] = str(e)
@@ -288,12 +310,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             # Create schema with user's input preserved
             error_schema = vol.Schema(
                 {
-                    vol.Required(
-                        "task_name", default=task_name
-                    ): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.TEXT
-                        )
+                    vol.Required("task_name", default=task_name): selector.TextSelector(
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
                     ),
                     vol.Required(
                         "min_duration", default=min_duration
@@ -334,13 +352,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     vol.Optional(
                         "last_completed", default=last_completed or ""
                     ): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.TEXT
-                        )
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
                     ),
                 }
             )
-            return self.async_show_form(step_id="init", data_schema=error_schema, errors=errors)
+            return self.async_show_form(
+                step_id="init", data_schema=error_schema, errors=errors
+            )
 
         # Update the config entry with new data
         new_data = {
@@ -351,9 +369,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             "max_duration": max_duration,
             "max_duration_unit": max_duration_unit,
             "max_duration_seconds": max_duration_seconds,
-            "last_completed": DateTimeValidator.validate_and_format_datetime(
-                last_completed, "options update"
-            ) if last_completed else None,
+            "last_completed": (
+                DateTimeValidator.validate_and_format_datetime(
+                    last_completed, "options update"
+                )
+                if last_completed
+                else None
+            ),
         }
 
         # Update the last_completed timestamp in storage if changed
@@ -401,7 +423,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             self.config_entry.entry_id, datetime_obj.isoformat()
                         )
                     else:
-                        await storage_manager.remove_completion(self.config_entry.entry_id)
+                        await storage_manager.remove_completion(
+                            self.config_entry.entry_id
+                        )
 
         # Update the title if the task name changed
         title = f"RTask: {task_name}"
