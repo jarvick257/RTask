@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from typing import Any
 
@@ -15,7 +14,6 @@ from homeassistant.helpers import selector
 
 from .const import DOMAIN, TIME_UNITS, TIME_UNIT_OPTIONS
 
-_LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -58,22 +56,18 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def _validate_and_format_datetime(self, dt_value: Any, context: str) -> str | None:
         """Validate and format datetime value from text input (yyyy-mm-dd hh:mm format)."""
-        _LOGGER.debug(f"Validating datetime in {context}: {dt_value} (type: {type(dt_value).__name__})")
 
         if dt_value is None:
-            _LOGGER.debug(f"Datetime is None in {context}")
             return None
 
         if hasattr(dt_value, "isoformat"):
             # It's a datetime object
             result = dt_value.isoformat()
-            _LOGGER.debug(f"Converted datetime object to ISO string in {context}: {result}")
             return result
         elif isinstance(dt_value, str):
             dt_string = dt_value.strip()
             
             if not dt_string:
-                _LOGGER.debug(f"Empty datetime string in {context}")
                 return None
 
             # Try to parse the expected format: "yyyy-mm-dd hh:mm"
@@ -89,18 +83,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 try:
                     parsed_dt = datetime.strptime(dt_string, fmt)
                     result = parsed_dt.isoformat()
-                    _LOGGER.debug(f"Parsed datetime using format '{fmt}' in {context}: '{dt_value}' -> '{result}'")
                     return result
                 except ValueError:
                     continue
 
             # If all parsing attempts fail
             error_msg = f"Invalid datetime format in {context}: '{dt_value}'. Expected format: yyyy-mm-dd hh:mm (e.g., '2025-09-08 16:00')"
-            _LOGGER.error(error_msg)
             raise ValueError(error_msg)
         else:
             error_msg = f"Invalid datetime type in {context}: expected string, got {type(dt_value).__name__}: {dt_value}"
-            _LOGGER.error(error_msg)
             raise TypeError(error_msg)
 
     @staticmethod
@@ -171,22 +162,18 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
     def _validate_and_format_datetime(self, dt_value: Any, context: str) -> str | None:
         """Validate and format datetime value from text input (yyyy-mm-dd hh:mm format)."""
-        _LOGGER.debug(f"Validating datetime in {context}: {dt_value} (type: {type(dt_value).__name__})")
 
         if dt_value is None:
-            _LOGGER.debug(f"Datetime is None in {context}")
             return None
 
         if hasattr(dt_value, "isoformat"):
             # It's a datetime object
             result = dt_value.isoformat()
-            _LOGGER.debug(f"Converted datetime object to ISO string in {context}: {result}")
             return result
         elif isinstance(dt_value, str):
             dt_string = dt_value.strip()
             
             if not dt_string:
-                _LOGGER.debug(f"Empty datetime string in {context}")
                 return None
 
             # Try to parse the expected format: "yyyy-mm-dd hh:mm"
@@ -202,18 +189,15 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 try:
                     parsed_dt = datetime.strptime(dt_string, fmt)
                     result = parsed_dt.isoformat()
-                    _LOGGER.debug(f"Parsed datetime using format '{fmt}' in {context}: '{dt_value}' -> '{result}'")
                     return result
                 except ValueError:
                     continue
 
             # If all parsing attempts fail
             error_msg = f"Invalid datetime format in {context}: '{dt_value}'. Expected format: yyyy-mm-dd hh:mm (e.g., '2025-09-08 16:00')"
-            _LOGGER.error(error_msg)
             raise ValueError(error_msg)
         else:
             error_msg = f"Invalid datetime type in {context}: expected string, got {type(dt_value).__name__}: {dt_value}"
-            _LOGGER.error(error_msg)
             raise TypeError(error_msg)
 
     async def async_step_init(
@@ -239,7 +223,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         )
                     except (ValueError, TypeError) as e:
                         error_msg = f"Invalid datetime string in storage: '{last_completed_dt}': {e}"
-                        _LOGGER.error(error_msg)
                         raise ValueError(error_msg) from e
                 else:
                     current_last_completed = last_completed_dt
@@ -315,17 +298,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         max_duration_unit = user_input.get("max_duration_unit", "days")
         last_completed = user_input.get("last_completed")
 
-        # Debug log the datetime input with more detail
-        _LOGGER.debug(
-            "Options flow - Raw last_completed input: %s (type: %s)",
-            last_completed,
-            type(last_completed),
-        )
-        if isinstance(last_completed, str):
-            _LOGGER.debug("String representation: '%s'", repr(last_completed))
-            _LOGGER.debug("String length: %d", len(last_completed))
-        elif hasattr(last_completed, "__dict__"):
-            _LOGGER.debug("Object attributes: %s", vars(last_completed))
 
         if not task_name:
             errors["task_name"] = "Task name cannot be empty"
@@ -372,16 +344,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             else:
                 new_comparable = str(last_completed)
 
-        _LOGGER.debug(
-            "Comparing timestamps - current: %s, new: %s",
-            current_comparable,
-            new_comparable,
-        )
 
         if new_comparable != current_comparable:
-            _LOGGER.info(
-                f"Timestamp changed for entry {self.config_entry.entry_id}: {current_comparable} -> {new_comparable}"
-            )
             if (
                 DOMAIN in self.hass.data
                 and self.config_entry.entry_id in self.hass.data[DOMAIN]
@@ -398,7 +362,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             datetime_obj = datetime.fromisoformat(last_completed)
                         except (ValueError, TypeError) as e:
                             error_msg = f"Invalid datetime string during options update: '{last_completed}': {e}"
-                            _LOGGER.error(error_msg)
                             raise ValueError(error_msg) from e
                 elif last_completed is None:
                     # Explicitly setting to None, so clear it
@@ -420,22 +383,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             iso_string = parsed.isoformat()
                         except (ValueError, TypeError) as e:
                             error_msg = f"Cannot store invalid datetime string '{datetime_obj}': {e}"
-                            _LOGGER.error(error_msg)
                             raise ValueError(error_msg) from e
                     else:
                         error_msg = f"Cannot store datetime of unexpected type {type(datetime_obj).__name__}: {datetime_obj}"
-                        _LOGGER.error(error_msg)
                         raise TypeError(error_msg)
 
                     self.hass.data[DOMAIN]["completions"][
                         self.config_entry.entry_id
                     ] = iso_string
-                    _LOGGER.debug(
-                        f"Stored completion time for entry {self.config_entry.entry_id}: {iso_string}"
-                    )
-                    _LOGGER.debug(
-                        f"All completions after update: {self.hass.data[DOMAIN]['completions']}"
-                    )
                 else:
                     self.hass.data[DOMAIN]["completions"].pop(
                         self.config_entry.entry_id, None
@@ -443,9 +398,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
                 store = self.hass.data[DOMAIN]["store"]
                 await store.async_save(self.hass.data[DOMAIN]["completions"])
-                _LOGGER.info(
-                    f"Successfully saved timestamp change to storage for entry {self.config_entry.entry_id}"
-                )
 
         # Update the title if the task name changed
         title = f"RTask: {task_name}"
