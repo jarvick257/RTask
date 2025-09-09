@@ -10,7 +10,6 @@ TIME_UNITS = {
 }
 
 TIME_UNIT_OPTIONS = [
-    {"value": "seconds", "label": "Seconds"},
     {"value": "hours", "label": "Hours"},
     {"value": "days", "label": "Days"},
 ]
@@ -20,8 +19,8 @@ DEFAULT_MIN_DURATION_SECONDS = 86400  # 1 day
 DEFAULT_MAX_DURATION_SECONDS = 604800  # 7 days
 
 # Update interval for sensor state checks
-UPDATE_INTERVAL_MINUTES = 0
-UPDATE_INTERVAL_SECONDS = 1
+UPDATE_INTERVAL_MINUTES = 1
+UPDATE_INTERVAL_SECONDS = 0
 
 # Sensor state constants
 SENSOR_STATE_NEVER_DONE = "Never Done"
