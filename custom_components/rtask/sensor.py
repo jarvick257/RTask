@@ -15,7 +15,18 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    DEFAULT_MIN_DURATION_SECONDS,
+    DEFAULT_MAX_DURATION_SECONDS,
+    UPDATE_INTERVAL_MINUTES,
+    UPDATE_INTERVAL_SECONDS,
+    SENSOR_STATE_NEVER_DONE,
+    SENSOR_STATE_DONE,
+    SENSOR_STATE_DUE,
+    SENSOR_STATE_OVERDUE,
+)
+from .utils import TaskDataValidator
 
 
 async def async_setup_entry(
@@ -46,20 +57,24 @@ class RTaskSensor(SensorEntity):
         """Return the native value of the sensor."""
         last_completed = self._get_last_completed()
         if last_completed is None:
-            return "Never Done"
+            return SENSOR_STATE_NEVER_DONE
 
         config_data = self._config_entry.data
-        min_seconds = config_data.get("min_duration_seconds", 86400)  # Default 1 day
-        max_seconds = config_data.get("max_duration_seconds", 604800)  # Default 7 days
+        min_seconds = TaskDataValidator.get_config_value_safe(
+            config_data, "min_duration_seconds", DEFAULT_MIN_DURATION_SECONDS
+        )
+        max_seconds = TaskDataValidator.get_config_value_safe(
+            config_data, "max_duration_seconds", DEFAULT_MAX_DURATION_SECONDS
+        )
 
         seconds_since = (datetime.now() - last_completed).total_seconds()
 
         if seconds_since < min_seconds:
-            return "Done"
+            return SENSOR_STATE_DONE
         elif seconds_since <= max_seconds:
-            return "Due"
+            return SENSOR_STATE_DUE
         else:
-            return "Overdue"
+            return SENSOR_STATE_OVERDUE
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -68,13 +83,27 @@ class RTaskSensor(SensorEntity):
         last_completed = self._get_last_completed()
 
         attributes = {
-            "task_name": config_data.get("task_name", "Unknown"),
-            "min_duration": config_data.get("min_duration", 1),
-            "min_duration_unit": config_data.get("min_duration_unit", "days"),
-            "max_duration": config_data.get("max_duration", 7),
-            "max_duration_unit": config_data.get("max_duration_unit", "days"),
-            "min_duration_seconds": config_data.get("min_duration_seconds", 86400),
-            "max_duration_seconds": config_data.get("max_duration_seconds", 604800),
+            "task_name": TaskDataValidator.get_config_value_safe(
+                config_data, "task_name", "Unknown"
+            ),
+            "min_duration": TaskDataValidator.get_config_value_safe(
+                config_data, "min_duration", 1
+            ),
+            "min_duration_unit": TaskDataValidator.get_config_value_safe(
+                config_data, "min_duration_unit", "days"
+            ),
+            "max_duration": TaskDataValidator.get_config_value_safe(
+                config_data, "max_duration", 7
+            ),
+            "max_duration_unit": TaskDataValidator.get_config_value_safe(
+                config_data, "max_duration_unit", "days"
+            ),
+            "min_duration_seconds": TaskDataValidator.get_config_value_safe(
+                config_data, "min_duration_seconds", DEFAULT_MIN_DURATION_SECONDS
+            ),
+            "max_duration_seconds": TaskDataValidator.get_config_value_safe(
+                config_data, "max_duration_seconds", DEFAULT_MAX_DURATION_SECONDS
+            ),
             "last_completed": last_completed.isoformat() if last_completed else None,
         }
 
@@ -86,8 +115,12 @@ class RTaskSensor(SensorEntity):
             attributes["days_since_completed"] = int(seconds_since / 86400)
 
             # Add time until due/overdue for better visibility
-            min_seconds = config_data.get("min_duration_seconds", 86400)
-            max_seconds = config_data.get("max_duration_seconds", 604800)
+            min_seconds = TaskDataValidator.get_config_value_safe(
+                config_data, "min_duration_seconds", DEFAULT_MIN_DURATION_SECONDS
+            )
+            max_seconds = TaskDataValidator.get_config_value_safe(
+                config_data, "max_duration_seconds", DEFAULT_MAX_DURATION_SECONDS
+            )
 
             if seconds_since < min_seconds:
                 attributes["seconds_until_due"] = int(min_seconds - seconds_since)
@@ -99,11 +132,10 @@ class RTaskSensor(SensorEntity):
         return attributes
 
     def _get_last_completed(self) -> datetime | None:
-        """Get the last completed timestamp from hass data."""
-        entry_data = self._hass.data.get(DOMAIN, {}).get(
-            self._config_entry.entry_id, {}
+        """Get the last completed timestamp from hass data with proper error handling."""
+        return TaskDataValidator.get_last_completed_datetime(
+            self._hass, self._config_entry.entry_id
         )
-        return entry_data.get("last_completed")
 
     async def async_mark_done(self) -> None:
         """Mark this task as completed."""
@@ -131,5 +163,9 @@ class RTaskSensor(SensorEntity):
         # Listen for task completion events
         self._hass.bus.async_listen("rtask_task_completed", _async_task_completed)
 
-        # Schedule regular updates to check status
-        async_track_time_interval(self._hass, _async_update_state, timedelta(seconds=1))
+        # Schedule regular updates to check status (every 5 minutes for performance)
+        async_track_time_interval(
+            self._hass,
+            _async_update_state,
+            timedelta(minutes=UPDATE_INTERVAL_MINUTES, seconds=UPDATE_INTERVAL_SECONDS),
+        )

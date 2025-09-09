@@ -10,43 +10,31 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.storage import Store
+from homeassistant.exceptions import ServiceValidationError
 
 from .const import DOMAIN
-
+from .utils import TaskStorageManager, DateTimeValidator
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
-
-
-
-# Storage version for task completion data
-STORAGE_VERSION = 1
-STORAGE_KEY = f"{DOMAIN}_task_completions"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up RTask from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     
-    # Initialize storage for task completion times
-    if "store" not in hass.data[DOMAIN]:
-        store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
-        hass.data[DOMAIN]["store"] = store
-        # Load existing completion data
-        stored_data = await store.async_load()
-        hass.data[DOMAIN]["completions"] = stored_data or {}
-    
-    # Ensure completions dict exists even if store was already initialized
-    if "completions" not in hass.data[DOMAIN]:
-        store = hass.data[DOMAIN]["store"]
-        stored_data = await store.async_load()
-        hass.data[DOMAIN]["completions"] = stored_data or {}
+    # Initialize storage manager if not exists
+    if "storage_manager" not in hass.data[DOMAIN]:
+        storage_manager = TaskStorageManager(hass)
+        await storage_manager.initialize()
+        hass.data[DOMAIN]["storage_manager"] = storage_manager
+    else:
+        storage_manager = hass.data[DOMAIN]["storage_manager"]
 
     # Initialize entry data with completion time, prioritizing storage over config
     last_completed = None
 
     # First check stored completion time (most recent, including options flow updates)
-    stored_completion = hass.data[DOMAIN]["completions"].get(entry.entry_id)
+    stored_completion = await storage_manager.get_completion(entry.entry_id)
     if stored_completion:
         try:
             last_completed = datetime.fromisoformat(stored_completion)
@@ -61,9 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 last_completed = datetime.fromisoformat(config_last_completed)
                 # Save initial config time to storage
-                hass.data[DOMAIN]["completions"][entry.entry_id] = config_last_completed
-                store = hass.data[DOMAIN]["store"]
-                await store.async_save(hass.data[DOMAIN]["completions"])
+                await storage_manager.set_completion(entry.entry_id, config_last_completed)
             except (ValueError, TypeError) as e:
                 error_msg = f"Invalid config completion time '{config_last_completed}' for entry {entry.entry_id}: {e}"
                 raise ValueError(error_msg) from e
@@ -71,13 +57,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = {
         "last_completed": last_completed,
     }
-    
 
     # Set up entry update listener
     entry.async_on_unload(entry.add_update_listener(async_update_entry))
-
-    # Note: Custom cards in www/community/ are automatically available at /local/community/
-    # No explicit registration needed in modern Home Assistant versions
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -87,14 +69,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entity_id = call.data.get("entity_id")
 
         if not entity_id:
-            return
+            raise ServiceValidationError("No entity_id provided for mark_done service")
 
         # Find the config entry for this entity
         entity_registry = er.async_get(hass)
         entity_entry = entity_registry.async_get(entity_id)
 
         if not entity_entry or entity_entry.platform != DOMAIN:
-            return
+            raise ServiceValidationError(f"Entity {entity_id} not found or not an RTask entity")
 
         # Update the last completed time
         config_entry_id = entity_entry.config_entry_id
@@ -102,11 +84,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             now = datetime.now()
             hass.data[DOMAIN][config_entry_id]["last_completed"] = now
 
-            # Save to persistent storage
-            hass.data[DOMAIN]["completions"][config_entry_id] = now.isoformat()
-            store = hass.data[DOMAIN]["store"]
-            await store.async_save(hass.data[DOMAIN]["completions"])
-
+            # Save to persistent storage using storage manager
+            storage_manager = hass.data[DOMAIN]["storage_manager"]
+            await storage_manager.set_completion(config_entry_id, now.isoformat())
 
             # Force state update by firing completion event
             hass.bus.async_fire("rtask_task_completed", {"entity_id": entity_id})
@@ -123,11 +103,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # If the entry is being removed (not just reloaded), clean up storage
         if hasattr(entry, '_async_remove_if_unused') or entry.state.name == 'NOT_LOADED':
             # This appears to be a permanent deletion
-            if entry.entry_id in hass.data[DOMAIN].get("completions", {}):
-                hass.data[DOMAIN]["completions"].pop(entry.entry_id, None)
-                # Save the updated completions to storage
-                store = hass.data[DOMAIN]["store"]
-                await store.async_save(hass.data[DOMAIN]["completions"])
+            storage_manager = hass.data[DOMAIN].get("storage_manager")
+            if storage_manager:
+                await storage_manager.remove_completion(entry.entry_id)
         else:
             # This is just a reload, preserve completion data
             pass
@@ -140,17 +118,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Called when a config entry is being removed."""
-    
-    if DOMAIN in hass.data and "completions" in hass.data[DOMAIN]:
-        if entry.entry_id in hass.data[DOMAIN]["completions"]:
-            hass.data[DOMAIN]["completions"].pop(entry.entry_id, None)
-            # Save the updated completions to storage
-            store = hass.data[DOMAIN]["store"]
-            await store.async_save(hass.data[DOMAIN]["completions"])
+    if DOMAIN in hass.data:
+        storage_manager = hass.data[DOMAIN].get("storage_manager")
+        if storage_manager:
+            await storage_manager.remove_completion(entry.entry_id)
 
 
 async def async_update_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update a given config entry."""
-
     # Reload the config entry to apply changes
     await hass.config_entries.async_reload(entry.entry_id)

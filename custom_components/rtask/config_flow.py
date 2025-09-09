@@ -13,7 +13,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .const import DOMAIN, TIME_UNITS, TIME_UNIT_OPTIONS
-
+from .utils import DateTimeValidator, TaskDataValidator, TaskStorageManager
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -54,46 +54,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    def _validate_and_format_datetime(self, dt_value: Any, context: str) -> str | None:
-        """Validate and format datetime value from text input (yyyy-mm-dd hh:mm format)."""
-
-        if dt_value is None:
-            return None
-
-        if hasattr(dt_value, "isoformat"):
-            # It's a datetime object
-            result = dt_value.isoformat()
-            return result
-        elif isinstance(dt_value, str):
-            dt_string = dt_value.strip()
-            
-            if not dt_string:
-                return None
-
-            # Try to parse the expected format: "yyyy-mm-dd hh:mm"
-            formats_to_try = [
-                "%Y-%m-%d %H:%M",      # "2025-09-08 16:00"
-                "%Y-%m-%d %H:%M:%S",   # "2025-09-08 16:00:00"
-                "%Y-%m-%d",            # "2025-09-08" (date only, defaults to 00:00)
-                "%Y-%m-%dT%H:%M",      # "2025-09-08T16:00" (ISO format without seconds)
-                "%Y-%m-%dT%H:%M:%S",   # "2025-09-08T16:00:00" (full ISO format)
-            ]
-
-            for fmt in formats_to_try:
-                try:
-                    parsed_dt = datetime.strptime(dt_string, fmt)
-                    result = parsed_dt.isoformat()
-                    return result
-                except ValueError:
-                    continue
-
-            # If all parsing attempts fail
-            error_msg = f"Invalid datetime format in {context}: '{dt_value}'. Expected format: yyyy-mm-dd hh:mm (e.g., '2025-09-08 16:00')"
-            raise ValueError(error_msg)
-        else:
-            error_msg = f"Invalid datetime type in {context}: expected string, got {type(dt_value).__name__}: {dt_value}"
-            raise TypeError(error_msg)
-
     @staticmethod
     def async_get_options_flow(config_entry):
         """Create the options flow."""
@@ -121,14 +81,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not task_name:
             errors["task_name"] = "Task name cannot be empty"
 
-        # Convert to seconds for comparison
-        min_duration_seconds = min_duration * TIME_UNITS.get(min_duration_unit, 1)
-        max_duration_seconds = max_duration * TIME_UNITS.get(max_duration_unit, 1)
-
-        if min_duration_seconds >= max_duration_seconds:
-            errors["max_duration"] = (
-                "Maximum duration must be greater than minimum duration"
+        # Validate duration configuration
+        try:
+            min_duration_seconds, max_duration_seconds = TaskDataValidator.validate_duration_config(
+                min_duration, min_duration_unit, max_duration, max_duration_unit
             )
+        except ValueError as e:
+            errors["max_duration"] = str(e)
 
         if errors:
             return self.async_show_form(
@@ -144,7 +103,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             "max_duration": max_duration,
             "max_duration_unit": max_duration_unit,
             "max_duration_seconds": max_duration_seconds,
-            "last_completed": self._validate_and_format_datetime(
+            "last_completed": DateTimeValidator.validate_and_format_datetime(
                 last_completed, "initial config"
             ),
         }
@@ -159,46 +118,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
         super().__init__()
-
-    def _validate_and_format_datetime(self, dt_value: Any, context: str) -> str | None:
-        """Validate and format datetime value from text input (yyyy-mm-dd hh:mm format)."""
-
-        if dt_value is None:
-            return None
-
-        if hasattr(dt_value, "isoformat"):
-            # It's a datetime object
-            result = dt_value.isoformat()
-            return result
-        elif isinstance(dt_value, str):
-            dt_string = dt_value.strip()
-            
-            if not dt_string:
-                return None
-
-            # Try to parse the expected format: "yyyy-mm-dd hh:mm"
-            formats_to_try = [
-                "%Y-%m-%d %H:%M",      # "2025-09-08 16:00"
-                "%Y-%m-%d %H:%M:%S",   # "2025-09-08 16:00:00"
-                "%Y-%m-%d",            # "2025-09-08" (date only, defaults to 00:00)
-                "%Y-%m-%dT%H:%M",      # "2025-09-08T16:00" (ISO format without seconds)
-                "%Y-%m-%dT%H:%M:%S",   # "2025-09-08T16:00:00" (full ISO format)
-            ]
-
-            for fmt in formats_to_try:
-                try:
-                    parsed_dt = datetime.strptime(dt_string, fmt)
-                    result = parsed_dt.isoformat()
-                    return result
-                except ValueError:
-                    continue
-
-            # If all parsing attempts fail
-            error_msg = f"Invalid datetime format in {context}: '{dt_value}'. Expected format: yyyy-mm-dd hh:mm (e.g., '2025-09-08 16:00')"
-            raise ValueError(error_msg)
-        else:
-            error_msg = f"Invalid datetime type in {context}: expected string, got {type(dt_value).__name__}: {dt_value}"
-            raise TypeError(error_msg)
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -298,18 +217,16 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         max_duration_unit = user_input.get("max_duration_unit", "days")
         last_completed = user_input.get("last_completed")
 
-
         if not task_name:
             errors["task_name"] = "Task name cannot be empty"
 
-        # Convert to seconds for comparison
-        min_duration_seconds = min_duration * TIME_UNITS.get(min_duration_unit, 1)
-        max_duration_seconds = max_duration * TIME_UNITS.get(max_duration_unit, 1)
-
-        if min_duration_seconds >= max_duration_seconds:
-            errors["max_duration"] = (
-                "Maximum duration must be greater than minimum duration"
+        # Validate duration configuration
+        try:
+            min_duration_seconds, max_duration_seconds = TaskDataValidator.validate_duration_config(
+                min_duration, min_duration_unit, max_duration, max_duration_unit
             )
+        except ValueError as e:
+            errors["max_duration"] = str(e)
 
         if errors:
             return self.async_show_form(step_id="init", errors=errors)
@@ -323,7 +240,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             "max_duration": max_duration,
             "max_duration_unit": max_duration_unit,
             "max_duration_seconds": max_duration_seconds,
-            "last_completed": self._validate_and_format_datetime(
+            "last_completed": DateTimeValidator.validate_and_format_datetime(
                 last_completed, "options update"
             ),
         }
@@ -344,16 +261,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             else:
                 new_comparable = str(last_completed)
 
-
         if new_comparable != current_comparable:
             if (
                 DOMAIN in self.hass.data
                 and self.config_entry.entry_id in self.hass.data[DOMAIN]
             ):
                 # Store datetime object in memory
-                datetime_obj = (
-                    current_last_completed  # Start with current value as fallback
-                )
+                datetime_obj = None
                 if last_completed:
                     if hasattr(last_completed, "isoformat"):
                         datetime_obj = last_completed
@@ -363,41 +277,20 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         except (ValueError, TypeError) as e:
                             error_msg = f"Invalid datetime string during options update: '{last_completed}': {e}"
                             raise ValueError(error_msg) from e
-                elif last_completed is None:
-                    # Explicitly setting to None, so clear it
-                    datetime_obj = None
 
                 self.hass.data[DOMAIN][self.config_entry.entry_id][
                     "last_completed"
                 ] = datetime_obj
 
-                # Save to persistent storage
-                if datetime_obj:
-                    # Validate and convert to ISO format string
-                    if hasattr(datetime_obj, "isoformat"):
-                        iso_string = datetime_obj.isoformat()
-                    elif isinstance(datetime_obj, str):
-                        # Re-validate string format before storing
-                        try:
-                            parsed = datetime.fromisoformat(datetime_obj)
-                            iso_string = parsed.isoformat()
-                        except (ValueError, TypeError) as e:
-                            error_msg = f"Cannot store invalid datetime string '{datetime_obj}': {e}"
-                            raise ValueError(error_msg) from e
+                # Save to persistent storage using storage manager
+                storage_manager = self.hass.data[DOMAIN].get("storage_manager")
+                if storage_manager:
+                    if datetime_obj:
+                        await storage_manager.set_completion(
+                            self.config_entry.entry_id, datetime_obj.isoformat()
+                        )
                     else:
-                        error_msg = f"Cannot store datetime of unexpected type {type(datetime_obj).__name__}: {datetime_obj}"
-                        raise TypeError(error_msg)
-
-                    self.hass.data[DOMAIN]["completions"][
-                        self.config_entry.entry_id
-                    ] = iso_string
-                else:
-                    self.hass.data[DOMAIN]["completions"].pop(
-                        self.config_entry.entry_id, None
-                    )
-
-                store = self.hass.data[DOMAIN]["store"]
-                await store.async_save(self.hass.data[DOMAIN]["completions"])
+                        await storage_manager.remove_completion(self.config_entry.entry_id)
 
         # Update the title if the task name changed
         title = f"RTask: {task_name}"
