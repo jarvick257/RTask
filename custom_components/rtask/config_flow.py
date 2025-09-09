@@ -90,8 +90,41 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["max_duration"] = str(e)
 
         if errors:
+            # Create schema with user's input preserved
+            error_schema = vol.Schema(
+                {
+                    vol.Required("task_name", default=task_name): selector.TextSelector(
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
+                    ),
+                    vol.Required("min_duration", default=min_duration): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=999999, step=1, mode=selector.NumberSelectorMode.BOX
+                        )
+                    ),
+                    vol.Required("min_duration_unit", default=min_duration_unit): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=TIME_UNIT_OPTIONS, mode=selector.SelectSelectorMode.DROPDOWN
+                        )
+                    ),
+                    vol.Required("max_duration", default=max_duration): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=999999, step=1, mode=selector.NumberSelectorMode.BOX
+                        )
+                    ),
+                    vol.Required("max_duration_unit", default=max_duration_unit): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=TIME_UNIT_OPTIONS, mode=selector.SelectSelectorMode.DROPDOWN
+                        )
+                    ),
+                    vol.Optional("last_completed", default=last_completed or ""): selector.TextSelector(
+                        selector.TextSelectorConfig(
+                            type=selector.TextSelectorType.TEXT
+                        )
+                    ),
+                }
+            )
             return self.async_show_form(
-                step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+                step_id="user", data_schema=error_schema, errors=errors
             )
 
         # Store durations in seconds for consistency
@@ -229,7 +262,62 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             errors["max_duration"] = str(e)
 
         if errors:
-            return self.async_show_form(step_id="init", errors=errors)
+            # Create schema with user's input preserved
+            error_schema = vol.Schema(
+                {
+                    vol.Required(
+                        "task_name", default=task_name
+                    ): selector.TextSelector(
+                        selector.TextSelectorConfig(
+                            type=selector.TextSelectorType.TEXT
+                        )
+                    ),
+                    vol.Required(
+                        "min_duration", default=min_duration
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1,
+                            max=999999,
+                            step=1,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+                    vol.Required(
+                        "min_duration_unit", default=min_duration_unit
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=TIME_UNIT_OPTIONS,
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Required(
+                        "max_duration", default=max_duration
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1,
+                            max=999999,
+                            step=1,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+                    vol.Required(
+                        "max_duration_unit", default=max_duration_unit
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=TIME_UNIT_OPTIONS,
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(
+                        "last_completed", default=last_completed or ""
+                    ): selector.TextSelector(
+                        selector.TextSelectorConfig(
+                            type=selector.TextSelectorType.TEXT
+                        )
+                    ),
+                }
+            )
+            return self.async_show_form(step_id="init", data_schema=error_schema, errors=errors)
 
         # Update the config entry with new data
         new_data = {
