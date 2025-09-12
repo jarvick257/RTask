@@ -20,6 +20,9 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required("task_name"): selector.TextSelector(
             selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
         ),
+        vol.Optional("description"): selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT, multiline=True)
+        ),
         vol.Required("min_duration", default=1): selector.NumberSelector(
             selector.NumberSelectorConfig(
                 min=1, max=999999, step=1, mode=selector.NumberSelectorMode.BOX
@@ -70,6 +73,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Validate the input
         task_name = user_input.get("task_name", "").strip()
+        description = user_input.get("description", "").strip()
         min_duration = user_input.get("min_duration", 0)
         min_duration_unit = user_input.get("min_duration_unit", "days")
         max_duration = user_input.get("max_duration", 0)
@@ -102,6 +106,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Create schema with user's input preserved
             error_schema = vol.Schema(
                 {
+                    vol.Required("task_name", default=task_name): selector.TextSelector(
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
+                    ),
+                    vol.Optional("description", default=description or ""): selector.TextSelector(
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT, multiline=True)
+                    ),
                     vol.Required(
                         "min_duration", default=min_duration
                     ): selector.NumberSelector(
@@ -159,6 +169,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         config_data = {
             "task_name": task_name,
+            "description": description or None,
             "min_duration": min_duration,
             "min_duration_unit": min_duration_unit,
             "min_duration_seconds": min_duration_seconds,
@@ -212,6 +223,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 step_id="init",
                 data_schema=vol.Schema(
                     {
+                        vol.Optional(
+                            "description", default=current_data.get("description", "")
+                        ): selector.TextSelector(
+                            selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT, multiline=True)
+                        ),
                         vol.Required(
                             "min_duration", default=current_data.get("min_duration", 1)
                         ): selector.NumberSelector(
@@ -267,6 +283,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             )
 
         # Validate the input (same logic as config flow)
+        description = user_input.get("description", "").strip()
         min_duration = user_input.get("min_duration", 0)
         min_duration_unit = user_input.get("min_duration_unit", "days")
         max_duration = user_input.get("max_duration", 0)
@@ -296,6 +313,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             # Create schema with user's input preserved
             error_schema = vol.Schema(
                 {
+                    vol.Optional("description", default=description or ""): selector.TextSelector(
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT, multiline=True)
+                    ),
                     vol.Required(
                         "min_duration", default=min_duration
                     ): selector.NumberSelector(
@@ -346,6 +366,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         # Update the config entry with new data
         new_data = {
             "task_name": current_data.get("task_name", "Unknown Task"),
+            "description": description or None,
             "min_duration": min_duration,
             "min_duration_unit": min_duration_unit,
             "min_duration_seconds": min_duration_seconds,

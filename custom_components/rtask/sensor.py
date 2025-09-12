@@ -93,6 +93,9 @@ class RTaskSensor(SensorEntity):
             "task_name": TaskDataValidator.get_config_value_safe(
                 config_data, "task_name", "Unknown"
             ),
+            "description": TaskDataValidator.get_config_value_safe(
+                config_data, "description", None
+            ),
             "min_duration": TaskDataValidator.get_config_value_safe(
                 config_data, "min_duration", 1
             ),
