@@ -133,22 +133,5 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_update_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update a given config entry."""
-    # Force entity registry to update by dispatching an update signal
-    from homeassistant.helpers.dispatcher import async_dispatcher_send
-    
-    # Update the entity registry to reflect name changes
-    entity_registry = er.async_get(hass)
-    for entity_entry in er.async_entries_for_config_entry(entity_registry, entry.entry_id):
-        if entity_entry.platform == DOMAIN:
-            # Get the new task name from the updated config
-            task_name = entry.data.get("task_name", "Unknown Task")
-            new_name = f"RTask {task_name}"
-            
-            # Update the entity registry with the new name
-            entity_registry.async_update_entity(
-                entity_entry.entity_id,
-                name=new_name
-            )
-    
     # Reload the config entry to apply changes
     await hass.config_entries.async_reload(entry.entry_id)

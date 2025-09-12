@@ -102,9 +102,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Create schema with user's input preserved
             error_schema = vol.Schema(
                 {
-                    vol.Required("task_name", default=task_name): selector.TextSelector(
-                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-                    ),
                     vol.Required(
                         "min_duration", default=min_duration
                     ): selector.NumberSelector(
@@ -216,13 +213,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 data_schema=vol.Schema(
                     {
                         vol.Required(
-                            "task_name", default=current_data.get("task_name", "")
-                        ): selector.TextSelector(
-                            selector.TextSelectorConfig(
-                                type=selector.TextSelectorType.TEXT
-                            )
-                        ),
-                        vol.Required(
                             "min_duration", default=current_data.get("min_duration", 1)
                         ): selector.NumberSelector(
                             selector.NumberSelectorConfig(
@@ -277,15 +267,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             )
 
         # Validate the input (same logic as config flow)
-        task_name = user_input.get("task_name", "").strip()
         min_duration = user_input.get("min_duration", 0)
         min_duration_unit = user_input.get("min_duration_unit", "days")
         max_duration = user_input.get("max_duration", 0)
         max_duration_unit = user_input.get("max_duration_unit", "days")
         last_completed = user_input.get("last_completed")
-
-        if not task_name:
-            errors["task_name"] = "Task name cannot be empty"
 
         # Validate duration configuration
         try:
@@ -310,9 +296,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             # Create schema with user's input preserved
             error_schema = vol.Schema(
                 {
-                    vol.Required("task_name", default=task_name): selector.TextSelector(
-                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-                    ),
                     vol.Required(
                         "min_duration", default=min_duration
                     ): selector.NumberSelector(
@@ -362,7 +345,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         # Update the config entry with new data
         new_data = {
-            "task_name": task_name,
+            "task_name": current_data.get("task_name", "Unknown Task"),
             "min_duration": min_duration,
             "min_duration_unit": min_duration_unit,
             "min_duration_seconds": min_duration_seconds,
@@ -427,7 +410,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             self.config_entry.entry_id
                         )
 
-        # Update the title if the task name changed
-        title = task_name
+        # Keep the existing title (task name doesn't change)
+        title = current_data.get("task_name", "Unknown Task")
 
         return self.async_create_entry(title=title, data=new_data)
