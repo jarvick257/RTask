@@ -172,7 +172,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         }
 
         # Create the entry with the task name as the title
-        return self.async_create_entry(title=f"RTask: {task_name}", data=config_data)
+        return self.async_create_entry(title=task_name, data=config_data)
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
@@ -428,6 +428,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         )
 
         # Update the title if the task name changed
-        title = f"RTask: {task_name}"
+        title = task_name
 
         return self.async_create_entry(title=title, data=new_data)
