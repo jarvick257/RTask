@@ -37,7 +37,8 @@ RTask gives each task a **flexible time window**:
 ### Key Benefits
 ✅ **Flexible scheduling** - Time windows instead of rigid schedules\
 ✅ **Accidental-completion protection** - Long-press prevents misclicks\
-✅ **Multiple time units** - Configure in hours or days
+✅ **Multiple time units** - Configure in hours or days\
+✅ **Smart form validation** - Clear error messages preserve your input when validation fails
 
 Automation-ready:\
 ✅ **Mark as Done** - Integrate with smart home devices to automatically mark tasks complete\
@@ -56,12 +57,19 @@ This integration is available through HACS (Home Assistant Community Store).
 3. Go to Settings > Devices & Services > Add Integration
 4. Search for "RTask" and add your first task
 
-### Editing Tasks
+### Task Configuration
 
+**Creating New Tasks:**
+- **Min Duration**: Defaults to 1 day (how long before task becomes "Due")
+- **Max Duration**: Defaults to 2 days (how long before task becomes "Overdue")
+- **Time Units**: Choose between hours and days for fine-tuned control
+- **Last Completed**: Optionally set when the task was last done (format: YYYY-MM-DD HH:MM)
+
+**Editing Tasks:**
 You can modify task settings after creation:
 1. Go to Settings > Devices & Services > RTask
 2. Click "Configure" on any existing task
-3. Update time intervals, notification settings, or even the task name
+3. Update time intervals or task name - validation errors preserve your input
 4. Changes apply immediately without losing completion history
 
 ## Dashboard Setup
@@ -268,4 +276,16 @@ automation:
 > **Note:** Replace `mobile_app_your_phone` with your actual Home Assistant mobile app notification service (found in Settings > Integrations > Mobile App). This automation uses a template to automatically find all entities starting with `sensor.rtask_` and will work for any new RTask entities you create.
 
 This flexibility allows you to start with manual task completion and gradually add smart home integration as your system grows!
+
+## Technical Features
+
+### Smart Validation
+- **Datetime Validation**: Accepts multiple date formats (YYYY-MM-DD, YYYY-MM-DD HH:MM, ISO format)
+- **Form Preservation**: Validation errors don't clear your input - just fix the specific issue
+- **Duration Logic**: Ensures maximum duration is always greater than minimum duration
+
+### Performance Optimized
+- **Efficient Updates**: Sensor states update every minute instead of every second
+- **Persistent Storage**: Task completion times are safely stored and survive Home Assistant restarts
+- **Clean Architecture**: Modular code with proper error handling and data validation
 

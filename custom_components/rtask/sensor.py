@@ -45,12 +45,19 @@ class RTaskSensor(SensorEntity):
         """Initialize the sensor."""
         self._hass = hass
         self._config_entry = config_entry
-        task_name = config_entry.data.get("task_name", "Unknown Task")
-        self._attr_name = f"RTask {task_name}"
-        self._attr_unique_id = (
-            f"{DOMAIN}_{config_entry.entry_id}_{task_name.lower().replace(' ', '_')}"
-        )
         self._attr_should_poll = False
+        
+    @property 
+    def name(self) -> str:
+        """Return the name of the sensor."""
+        task_name = self._config_entry.data.get("task_name", "Unknown Task")
+        return f"RTask {task_name}"
+        
+    @property
+    def unique_id(self) -> str:
+        """Return the unique id of the sensor.""" 
+        # Use entry_id to ensure stable unique_id even when task name changes
+        return f"{DOMAIN}_{self._config_entry.entry_id}"
 
     @property
     def native_value(self) -> str:
