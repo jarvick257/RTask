@@ -4,6 +4,9 @@ class RTaskCard extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.longPressTimer = null;
     this.longPressDelay = 800; // 800ms for long press
+    this.touchStartX = null;
+    this.touchStartY = null;
+    this.touchMoved = false;
   }
 
   setConfig(config) {
@@ -217,6 +220,7 @@ class RTaskCard extends HTMLElement {
 
     // Touch events for mobile
     card.addEventListener('touchstart', (e) => this.startLongPress(e, container, progressBar));
+    card.addEventListener('touchmove', (e) => this.handleTouchMove(e, container, progressBar));
     card.addEventListener('touchend', () => this.endLongPress(container, progressBar));
     card.addEventListener('touchcancel', () => this.cancelLongPress(container, progressBar));
   }
@@ -286,8 +290,17 @@ class RTaskCard extends HTMLElement {
   }
 
   startLongPress(event, container, progressBar) {
-    // Prevent default to avoid text selection
-    event.preventDefault();
+    // Only prevent default for mouse events, not touch events to allow scrolling
+    if (event.type === 'mousedown') {
+      event.preventDefault();
+    }
+
+    // Track initial touch position for touch events
+    if (event.type === 'touchstart') {
+      this.touchStartX = event.touches[0].clientX;
+      this.touchStartY = event.touches[0].clientY;
+      this.touchMoved = false;
+    }
 
     // Clear any existing timer
     if (this.longPressTimer) {
@@ -300,7 +313,10 @@ class RTaskCard extends HTMLElement {
 
     // Start the long press timer
     this.longPressTimer = setTimeout(() => {
-      this.handleLongPress();
+      // Only trigger if touch hasn't moved (for touch events)
+      if (event.type === 'mousedown' || !this.touchMoved) {
+        this.handleLongPress();
+      }
       this.endLongPress(container, progressBar);
     }, this.longPressDelay);
   }
@@ -318,6 +334,20 @@ class RTaskCard extends HTMLElement {
 
   cancelLongPress(container, progressBar) {
     this.endLongPress(container, progressBar);
+  }
+
+  handleTouchMove(event, container, progressBar) {
+    if (!this.touchStartX || !this.touchStartY) return;
+
+    const touch = event.touches[0];
+    const deltaX = Math.abs(touch.clientX - this.touchStartX);
+    const deltaY = Math.abs(touch.clientY - this.touchStartY);
+    
+    // If touch moved more than 10px in any direction, consider it a scroll gesture
+    if (deltaX > 10 || deltaY > 10) {
+      this.touchMoved = true;
+      this.cancelLongPress(container, progressBar);
+    }
   }
 
   handleLongPress() {
