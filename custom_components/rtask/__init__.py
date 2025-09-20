@@ -133,5 +133,34 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_update_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update a given config entry."""
+    # Recalculate duration seconds based on updated units
+    from .utils import TaskDataValidator
+    
+    config_data = dict(entry.data)
+    
+    # Recalculate duration seconds if duration values are present
+    min_duration = config_data.get("min_duration")
+    min_duration_unit = config_data.get("min_duration_unit")
+    max_duration = config_data.get("max_duration")
+    max_duration_unit = config_data.get("max_duration_unit")
+    
+    if all([min_duration, min_duration_unit, max_duration, max_duration_unit]):
+        try:
+            min_duration_seconds, max_duration_seconds = (
+                TaskDataValidator.validate_duration_config(
+                    min_duration, min_duration_unit, max_duration, max_duration_unit
+                )
+            )
+            config_data["min_duration_seconds"] = min_duration_seconds
+            config_data["max_duration_seconds"] = max_duration_seconds
+            
+            # Update the config entry with recalculated values
+            hass.config_entries.async_update_entry(
+                entry, data=config_data
+            )
+        except ValueError:
+            # If validation fails, just proceed with reload
+            pass
+    
     # Reload the config entry to apply changes
     await hass.config_entries.async_reload(entry.entry_id)
