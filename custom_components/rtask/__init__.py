@@ -39,7 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             last_completed = datetime.fromisoformat(stored_completion)
             if last_completed.tzinfo is None:
-                last_completed = dt_util.as_local(last_completed)
+                last_completed = last_completed.replace(tzinfo=dt_util.UTC)
         except (ValueError, TypeError) as e:
             error_msg = f"Invalid stored completion time '{stored_completion}' for entry {entry.entry_id}: {e}"
             raise ValueError(error_msg) from e
@@ -51,7 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 last_completed = datetime.fromisoformat(config_last_completed)
                 if last_completed.tzinfo is None:
-                    last_completed = dt_util.as_local(last_completed)
+                    last_completed = last_completed.replace(tzinfo=dt_util.UTC)
                 # Save initial config time to storage
                 await storage_manager.set_completion(
                     entry.entry_id, config_last_completed
@@ -89,7 +89,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Update the last completed time
         config_entry_id = entity_entry.config_entry_id
         if config_entry_id in hass.data[DOMAIN]:
-            now = dt_util.now()
+            now = dt_util.utcnow()
             hass.data[DOMAIN][config_entry_id]["last_completed"] = now
 
             # Save to persistent storage using storage manager

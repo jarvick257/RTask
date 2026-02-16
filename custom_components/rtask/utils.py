@@ -37,7 +37,7 @@ def validate_and_format_datetime(dt_value: Any, context: str) -> str | None:
             try:
                 parsed_dt = datetime.strptime(dt_string, fmt)
                 if parsed_dt.tzinfo is None:
-                    parsed_dt = parsed_dt.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+                    parsed_dt = parsed_dt.replace(tzinfo=dt_util.UTC)
                 return parsed_dt.isoformat()
             except ValueError:
                 continue

@@ -11,6 +11,7 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, TIME_UNIT_OPTIONS
 from .utils import validate_and_format_datetime, validate_duration_config
@@ -180,6 +181,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         current_last_completed = datetime.fromisoformat(
                             last_completed_dt
                         )
+                        if current_last_completed.tzinfo is None:
+                            current_last_completed = current_last_completed.replace(tzinfo=dt_util.UTC)
                     except (ValueError, TypeError) as e:
                         error_msg = f"Invalid datetime string in storage: '{last_completed_dt}': {e}"
                         raise ValueError(error_msg) from e
@@ -289,6 +292,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     elif isinstance(last_completed, str):
                         try:
                             datetime_obj = datetime.fromisoformat(last_completed)
+                            if datetime_obj.tzinfo is None:
+                                datetime_obj = datetime_obj.replace(tzinfo=dt_util.UTC)
                         except (ValueError, TypeError) as e:
                             error_msg = f"Invalid datetime string during options update: '{last_completed}': {e}"
                             raise ValueError(error_msg) from e

@@ -67,7 +67,7 @@ class RTaskSensor(SensorEntity):
         min_seconds = config_data.get("min_duration_seconds", DEFAULT_MIN_DURATION_SECONDS)
         max_seconds = config_data.get("max_duration_seconds", DEFAULT_MAX_DURATION_SECONDS)
 
-        seconds_since = (dt_util.now() - last_completed).total_seconds()
+        seconds_since = (dt_util.utcnow() - last_completed).total_seconds()
 
         if seconds_since < min_seconds:
             return SENSOR_STATE_DONE
@@ -94,7 +94,7 @@ class RTaskSensor(SensorEntity):
         }
 
         if last_completed:
-            seconds_since = (dt_util.now() - last_completed).total_seconds()
+            seconds_since = (dt_util.utcnow() - last_completed).total_seconds()
             attributes["seconds_since_completed"] = int(seconds_since)
             attributes["minutes_since_completed"] = int(seconds_since / 60)
             attributes["hours_since_completed"] = int(seconds_since / 3600)
