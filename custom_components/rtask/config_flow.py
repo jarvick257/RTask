@@ -12,39 +12,54 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
-from .const import DOMAIN, TIME_UNITS, TIME_UNIT_OPTIONS
-from .utils import DateTimeValidator, TaskDataValidator, TaskStorageManager
+from .const import DOMAIN, TIME_UNIT_OPTIONS
+from .utils import validate_and_format_datetime, validate_duration_config
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required("task_name"): selector.TextSelector(
+def _build_duration_schema(
+    min_duration=1,
+    min_duration_unit="days",
+    max_duration=2,
+    max_duration_unit="days",
+    last_completed="",
+    include_task_name=False,
+    task_name="",
+) -> vol.Schema:
+    """Build a duration configuration schema with optional task_name field."""
+    fields: dict = {}
+    if include_task_name:
+        fields[vol.Required("task_name", default=task_name)] = selector.TextSelector(
             selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-        ),
-        vol.Required("min_duration", default=1): selector.NumberSelector(
-            selector.NumberSelectorConfig(
-                min=1, max=999999, step=1, mode=selector.NumberSelectorMode.BOX
-            )
-        ),
-        vol.Required("min_duration_unit", default="days"): selector.SelectSelector(
+        )
+    fields[vol.Required("min_duration", default=min_duration)] = selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=1, max=999999, step=1, mode=selector.NumberSelectorMode.BOX
+        )
+    )
+    fields[vol.Required("min_duration_unit", default=min_duration_unit)] = (
+        selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=TIME_UNIT_OPTIONS, mode=selector.SelectSelectorMode.DROPDOWN
             )
-        ),
-        vol.Required("max_duration", default=2): selector.NumberSelector(
-            selector.NumberSelectorConfig(
-                min=1, max=999999, step=1, mode=selector.NumberSelectorMode.BOX
-            )
-        ),
-        vol.Required("max_duration_unit", default="days"): selector.SelectSelector(
+        )
+    )
+    fields[vol.Required("max_duration", default=max_duration)] = selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=1, max=999999, step=1, mode=selector.NumberSelectorMode.BOX
+        )
+    )
+    fields[vol.Required("max_duration_unit", default=max_duration_unit)] = (
+        selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=TIME_UNIT_OPTIONS, mode=selector.SelectSelectorMode.DROPDOWN
             )
-        ),
-        vol.Optional("last_completed"): selector.TextSelector(
+        )
+    )
+    fields[vol.Optional("last_completed", default=last_completed)] = (
+        selector.TextSelector(
             selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-        ),
-    }
-)
+        )
+    )
+    return vol.Schema(fields)
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -55,7 +70,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     def async_get_options_flow(config_entry):
         """Create the options flow."""
-        return OptionsFlowHandler(config_entry)
+        return OptionsFlowHandler()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -65,7 +80,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is None:
             return self.async_show_form(
-                step_id="user", data_schema=STEP_USER_DATA_SCHEMA
+                step_id="user",
+                data_schema=_build_duration_schema(include_task_name=True),
             )
 
         # Validate the input
@@ -82,7 +98,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Validate duration configuration
         try:
             min_duration_seconds, max_duration_seconds = (
-                TaskDataValidator.validate_duration_config(
+                validate_duration_config(
                     min_duration, min_duration_unit, max_duration, max_duration_unit
                 )
             )
@@ -92,68 +108,32 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Validate datetime format
         if last_completed:
             try:
-                DateTimeValidator.validate_and_format_datetime(
+                validate_and_format_datetime(
                     last_completed, "initial config"
                 )
             except (ValueError, TypeError) as e:
                 errors["last_completed"] = str(e)
 
         if errors:
-            # Create schema with user's input preserved
-            error_schema = vol.Schema(
-                {
-                    vol.Required(
-                        "min_duration", default=min_duration
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1,
-                            max=999999,
-                            step=1,
-                            mode=selector.NumberSelectorMode.BOX,
-                        )
-                    ),
-                    vol.Required(
-                        "min_duration_unit", default=min_duration_unit
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=TIME_UNIT_OPTIONS,
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                        )
-                    ),
-                    vol.Required(
-                        "max_duration", default=max_duration
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1,
-                            max=999999,
-                            step=1,
-                            mode=selector.NumberSelectorMode.BOX,
-                        )
-                    ),
-                    vol.Required(
-                        "max_duration_unit", default=max_duration_unit
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=TIME_UNIT_OPTIONS,
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                        )
-                    ),
-                    vol.Optional(
-                        "last_completed", default=last_completed or ""
-                    ): selector.TextSelector(
-                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-                    ),
-                }
-            )
             return self.async_show_form(
-                step_id="user", data_schema=error_schema, errors=errors
+                step_id="user",
+                data_schema=_build_duration_schema(
+                    min_duration=min_duration,
+                    min_duration_unit=min_duration_unit,
+                    max_duration=max_duration,
+                    max_duration_unit=max_duration_unit,
+                    last_completed=last_completed or "",
+                    include_task_name=True,
+                    task_name=task_name,
+                ),
+                errors=errors,
             )
 
         # Store durations in seconds for consistency
         validated_last_completed = None
         if last_completed:
             # We already validated this above, so this should not raise
-            validated_last_completed = DateTimeValidator.validate_and_format_datetime(
+            validated_last_completed = validate_and_format_datetime(
                 last_completed, "initial config"
             )
 
@@ -175,7 +155,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class OptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options flow for RTask."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+    def __init__(self) -> None:
         """Initialize options flow."""
         super().__init__()
 
@@ -210,59 +190,16 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             # Pre-populate form with current values
             return self.async_show_form(
                 step_id="init",
-                data_schema=vol.Schema(
-                    {
-                        vol.Required(
-                            "min_duration", default=current_data.get("min_duration", 1)
-                        ): selector.NumberSelector(
-                            selector.NumberSelectorConfig(
-                                min=1,
-                                max=999999,
-                                step=1,
-                                mode=selector.NumberSelectorMode.BOX,
-                            )
-                        ),
-                        vol.Required(
-                            "min_duration_unit",
-                            default=current_data.get("min_duration_unit", "days"),
-                        ): selector.SelectSelector(
-                            selector.SelectSelectorConfig(
-                                options=TIME_UNIT_OPTIONS,
-                                mode=selector.SelectSelectorMode.DROPDOWN,
-                            )
-                        ),
-                        vol.Required(
-                            "max_duration", default=current_data.get("max_duration", 2)
-                        ): selector.NumberSelector(
-                            selector.NumberSelectorConfig(
-                                min=1,
-                                max=999999,
-                                step=1,
-                                mode=selector.NumberSelectorMode.BOX,
-                            )
-                        ),
-                        vol.Required(
-                            "max_duration_unit",
-                            default=current_data.get("max_duration_unit", "days"),
-                        ): selector.SelectSelector(
-                            selector.SelectSelectorConfig(
-                                options=TIME_UNIT_OPTIONS,
-                                mode=selector.SelectSelectorMode.DROPDOWN,
-                            )
-                        ),
-                        vol.Optional(
-                            "last_completed",
-                            default=(
-                                current_last_completed.strftime("%Y-%m-%d %H:%M")
-                                if current_last_completed
-                                else ""
-                            ),
-                        ): selector.TextSelector(
-                            selector.TextSelectorConfig(
-                                type=selector.TextSelectorType.TEXT
-                            )
-                        ),
-                    }
+                data_schema=_build_duration_schema(
+                    min_duration=current_data.get("min_duration", 1),
+                    min_duration_unit=current_data.get("min_duration_unit", "days"),
+                    max_duration=current_data.get("max_duration", 2),
+                    max_duration_unit=current_data.get("max_duration_unit", "days"),
+                    last_completed=(
+                        current_last_completed.strftime("%Y-%m-%d %H:%M")
+                        if current_last_completed
+                        else ""
+                    ),
                 ),
             )
 
@@ -276,7 +213,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         # Validate duration configuration
         try:
             min_duration_seconds, max_duration_seconds = (
-                TaskDataValidator.validate_duration_config(
+                validate_duration_config(
                     min_duration, min_duration_unit, max_duration, max_duration_unit
                 )
             )
@@ -286,61 +223,23 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         # Validate datetime format
         if last_completed:
             try:
-                DateTimeValidator.validate_and_format_datetime(
+                validate_and_format_datetime(
                     last_completed, "options update"
                 )
             except (ValueError, TypeError) as e:
                 errors["last_completed"] = str(e)
 
         if errors:
-            # Create schema with user's input preserved
-            error_schema = vol.Schema(
-                {
-                    vol.Required(
-                        "min_duration", default=min_duration
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1,
-                            max=999999,
-                            step=1,
-                            mode=selector.NumberSelectorMode.BOX,
-                        )
-                    ),
-                    vol.Required(
-                        "min_duration_unit", default=min_duration_unit
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=TIME_UNIT_OPTIONS,
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                        )
-                    ),
-                    vol.Required(
-                        "max_duration", default=max_duration
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1,
-                            max=999999,
-                            step=1,
-                            mode=selector.NumberSelectorMode.BOX,
-                        )
-                    ),
-                    vol.Required(
-                        "max_duration_unit", default=max_duration_unit
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=TIME_UNIT_OPTIONS,
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                        )
-                    ),
-                    vol.Optional(
-                        "last_completed", default=last_completed or ""
-                    ): selector.TextSelector(
-                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT)
-                    ),
-                }
-            )
             return self.async_show_form(
-                step_id="init", data_schema=error_schema, errors=errors
+                step_id="init",
+                data_schema=_build_duration_schema(
+                    min_duration=min_duration,
+                    min_duration_unit=min_duration_unit,
+                    max_duration=max_duration,
+                    max_duration_unit=max_duration_unit,
+                    last_completed=last_completed or "",
+                ),
+                errors=errors,
             )
 
         # Update the config entry with new data
@@ -353,7 +252,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             "max_duration_unit": max_duration_unit,
             "max_duration_seconds": max_duration_seconds,
             "last_completed": (
-                DateTimeValidator.validate_and_format_datetime(
+                validate_and_format_datetime(
                     last_completed, "options update"
                 )
                 if last_completed
@@ -410,7 +309,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             self.config_entry.entry_id
                         )
 
-        # Keep the existing title (task name doesn't change)
-        title = current_data.get("task_name", "Unknown Task")
+        # Persist new data into entry.data so the sensor reads updated values
+        self.hass.config_entries.async_update_entry(
+            self.config_entry, data=new_data
+        )
 
-        return self.async_create_entry(title=title, data=new_data)
+        return self.async_create_entry(title="", data={})

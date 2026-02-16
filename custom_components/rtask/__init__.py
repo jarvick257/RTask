@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from datetime import datetime
 from typing import Any
 
@@ -11,9 +10,10 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import entity_registry as er
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
-from .utils import TaskStorageManager, DateTimeValidator
+from .utils import TaskStorageManager
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
@@ -85,7 +85,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Update the last completed time
         config_entry_id = entity_entry.config_entry_id
         if config_entry_id in hass.data[DOMAIN]:
-            now = datetime.now()
+            now = dt_util.now()
             hass.data[DOMAIN][config_entry_id]["last_completed"] = now
 
             # Save to persistent storage using storage manager
@@ -95,7 +95,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Force state update by firing completion event
             hass.bus.async_fire("rtask_task_completed", {"entity_id": entity_id})
 
-    hass.services.async_register(DOMAIN, "mark_done", handle_mark_done)
+    if not hass.services.has_service(DOMAIN, "mark_done"):
+        hass.services.async_register(DOMAIN, "mark_done", handle_mark_done)
 
     return True
 
@@ -103,23 +104,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        # Check if this is a permanent removal or just a reload
-        # If the entry is being removed (not just reloaded), clean up storage
-        if (
-            hasattr(entry, "_async_remove_if_unused")
-            or entry.state.name == "NOT_LOADED"
-        ):
-            # This appears to be a permanent deletion
-            storage_manager = hass.data[DOMAIN].get("storage_manager")
-            if storage_manager:
-                await storage_manager.remove_completion(entry.entry_id)
-        else:
-            # This is just a reload, preserve completion data
-            pass
-
-        # Always clean up runtime data
         hass.data[DOMAIN].pop(entry.entry_id, None)
-
     return unload_ok
 
 
@@ -134,20 +119,20 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 async def async_update_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Update a given config entry."""
     # Recalculate duration seconds based on updated units
-    from .utils import TaskDataValidator
-    
+    from .utils import validate_duration_config
+
     config_data = dict(entry.data)
-    
+
     # Recalculate duration seconds if duration values are present
     min_duration = config_data.get("min_duration")
     min_duration_unit = config_data.get("min_duration_unit")
     max_duration = config_data.get("max_duration")
     max_duration_unit = config_data.get("max_duration_unit")
-    
-    if all([min_duration, min_duration_unit, max_duration, max_duration_unit]):
+
+    if all(v is not None for v in [min_duration, min_duration_unit, max_duration, max_duration_unit]):
         try:
             min_duration_seconds, max_duration_seconds = (
-                TaskDataValidator.validate_duration_config(
+                validate_duration_config(
                     min_duration, min_duration_unit, max_duration, max_duration_unit
                 )
             )

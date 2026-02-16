@@ -199,7 +199,7 @@ class RTaskCard extends HTMLElement {
         <div class="rtask-container status-${state.toLowerCase().replace(' ', '-')}">
           <div class="long-press-progress"></div>
           <div class="rtask-info">
-            <div class="task-name">${taskName}</div>
+            <div class="task-name">${this.escapeHtml(taskName)}</div>
             <div class="task-status">${state}</div>
             <div class="time-info">${timeInfo}</div>
           </div>
@@ -365,6 +365,12 @@ class RTaskCard extends HTMLElement {
     if (navigator.vibrate) {
       navigator.vibrate(50);
     }
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   getCardSize() {
